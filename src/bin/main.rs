@@ -1,7 +1,7 @@
 // use chip8::Chip8;
 use chip8::cpu::CPU;
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use sdl2::{event::Event, keyboard::Keycode, pixels::Color, rect::{Point, Rect}};
 
@@ -24,7 +24,9 @@ fn main() -> Result<(), String> {
     let mut i = 0;
 
     let mut cpu = CPU::default();
-    let mut auto = false;
+    let mut auto = true;
+
+    let mut global_timer = Instant::now();
 
     'running: loop {
         // i = (i + 1) % 255;
@@ -39,12 +41,51 @@ fn main() -> Result<(), String> {
                 Event::KeyDown { keycode: Some(Keycode::S), .. } => {
                     cpu.process();
                 },
-                Event::KeyDown { keycode: Some(Keycode::C), .. } => {
+                Event::KeyDown { keycode: Some(Keycode::R), .. } => {
                     auto = !auto;
                 },
-                Event::KeyDown { keycode: Some(Keycode::P), .. } => {
-                    cpu.memory[0x1FF] = 1;
+                Event::KeyDown { keycode, .. } => {
+                    match keycode.unwrap() {
+                        Keycode::Num0 => cpu.press_key(0),
+                        Keycode::Num1 => cpu.press_key(1),
+                        Keycode::Num2 => cpu.press_key(2),
+                        Keycode::Num3 => cpu.press_key(3),
+                        Keycode::Num4 => cpu.press_key(4),
+                        Keycode::Num5 => cpu.press_key(5),
+                        Keycode::Num6 => cpu.press_key(6),
+                        Keycode::Num7 => cpu.press_key(7),
+                        Keycode::Num8 => cpu.press_key(8),
+                        Keycode::Num9 => cpu.press_key(9),
+                        Keycode::A => cpu.press_key(0xA),
+                        Keycode::B => cpu.press_key(0xB),
+                        Keycode::C => cpu.press_key(0xC),
+                        Keycode::D => cpu.press_key(0xD),
+                        Keycode::E => cpu.press_key(0xE),
+                        Keycode::F => cpu.press_key(0xF),
+                        _ => ()
+                    }
                 },
+                Event::KeyUp { keycode, .. } => {
+                    match keycode.unwrap() {
+                        Keycode::Num0 => cpu.release_key(0),
+                        Keycode::Num1 => cpu.release_key(1),
+                        Keycode::Num2 => cpu.release_key(2),
+                        Keycode::Num3 => cpu.release_key(3),
+                        Keycode::Num4 => cpu.release_key(4),
+                        Keycode::Num5 => cpu.release_key(5),
+                        Keycode::Num6 => cpu.release_key(6),
+                        Keycode::Num7 => cpu.release_key(7),
+                        Keycode::Num8 => cpu.release_key(8),
+                        Keycode::Num9 => cpu.release_key(9),
+                        Keycode::A => cpu.release_key(0xA),
+                        Keycode::B => cpu.release_key(0xB),
+                        Keycode::C => cpu.release_key(0xC),
+                        Keycode::D => cpu.release_key(0xD),
+                        Keycode::E => cpu.release_key(0xE),
+                        Keycode::F => cpu.release_key(0xF),
+                        _ => ()
+                    }
+                }
                 _ => {}
             }
         }
@@ -72,7 +113,20 @@ fn main() -> Result<(), String> {
         canvas.present();
         ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
 
+        if global_timer.elapsed().as_millis() >= 17 {
+            println!("1 sec passed");
+            cpu.decrement_timers();
+            global_timer = Instant::now();
+        }
+
         if auto {
+            cpu.process();
+            cpu.process();
+            cpu.process();
+            cpu.process();
+            cpu.process();
+            cpu.process();
+            cpu.process();
             cpu.process();
         }
     }

@@ -43,7 +43,8 @@ pub struct CPU {
     sp: usize,
 
     // TODO: Array or bitmask?
-    key: u16
+    key: u16,
+    polling_key_press: bool
 }
 
 impl Default for CPU {
@@ -79,7 +80,8 @@ impl Default for CPU {
             sound_timer: 0,
             stack: [0; 16],
             sp: 0,
-            key: 0
+            key: 0,
+            polling_key_press: false
         }
     }
 }
@@ -102,7 +104,31 @@ impl Default for CPU {
 // }
 
 impl CPU {
+    pub fn decrement_timers(&mut self) {
+        if self.delay_timer > 0 {
+            println!("Decrementing delay timer, old value = {}", self.delay_timer);
+            self.delay_timer -= 1;
+        }
+
+        if self.sound_timer > 0 {
+            self.sound_timer -= 1;
+        }
+    }
+
+    pub fn press_key(&mut self, key_index: u8) {
+        self.key |= 1u16 << key_index;
+        self.polling_key_press = false;
+    }
+
+    pub fn release_key(&mut self, key_index: u8) {
+        self.key &= !(1u16 << key_index);
+    }
+
     pub fn process(&mut self) {
+        if self.polling_key_press {
+            return;
+        }
+
         let upper = self.memory[self.pc];
         let lower = self.memory[self.pc + 1];
         let instruction = ((upper as u16) << 8) | (lower as u16);
@@ -221,9 +247,18 @@ impl CPU {
 
         match code {
             0 => self.V[x] = self.V[y],
-            1 => self.V[x] |= self.V[y],
-            2 => self.V[x] &= self.V[y],
-            3 => self.V[x] ^= self.V[y],
+            1 => {
+                self.V[x] |= self.V[y];
+                self.V[0xF] = 0;
+            },
+            2 => {
+                self.V[x] &= self.V[y];
+                self.V[0xF] = 0;
+            },
+            3 => {
+                self.V[x] ^= self.V[y];
+                self.V[0xF] = 0;
+            },
             4 => {
                 let (res, overflow) = self.V[x].overflowing_add(self.V[y]);
                 self.V[x] = res;
@@ -237,7 +272,7 @@ impl CPU {
             6 => {
                 let index = if legacy { y } else { x };
                 let lsb = ((self.V[index] & 0x1) == 0x1) as u8;
-                self.V[index] = self.V[index] >> 1;
+                self.V[x] = self.V[index] >> 1;
                 self.V[0xF] = lsb;
             },
             7 => {
@@ -248,7 +283,7 @@ impl CPU {
             0xE => {
                 let index = if legacy { y } else { x };
                 let msb = ((self.V[index] & 0x80) == 0x80) as u8;
-                self.V[index] = self.V[index] << 1;
+                self.V[x] = self.V[index] << 1;
                 self.V[0xF] = msb;
             },
             _ => unreachable!()
@@ -308,9 +343,20 @@ impl CPU {
         }
     }
 
-    // TODO: How to get key input?
-    fn key_check(&mut self, x: u8, equals: bool) {}
-    fn get_key(&mut self, x: u8) {}
+    // TODO: How to get key input?f
+    fn key_check(&mut self, x: u8, equals: bool) {
+        let vx = self.V[x as usize];
+        println!("Checking input, x = {}, vx = {}, key state = {:#x}", x, vx, self.key);
+        if match equals {
+            true => (1u16 << vx) & self.key != 0,
+            false => (1u16 << vx) & self.key == 0
+        } {
+            self.pc += 2;
+        }
+    }
+    fn get_key(&mut self, x: u8) {
+        self.polling_key_press = true;
+    }
 
     fn set_delay(&mut self, x: u8) {}
     fn set_sound(&mut self, x: u8) {}
