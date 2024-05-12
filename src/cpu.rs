@@ -49,7 +49,9 @@ pub struct CPU {
 
     // TODO: Array or bitmask?
     key: u16,
-    polling_key_press: PollingKeyPress
+    polling_key_press: PollingKeyPress,
+
+    pub drawing: bool
 }
 
 impl Default for CPU {
@@ -86,7 +88,8 @@ impl Default for CPU {
             stack: [0; 16],
             sp: 0,
             key: 0,
-            polling_key_press: PollingKeyPress::NotPolling
+            polling_key_press: PollingKeyPress::NotPolling,
+            drawing: false
         }
     }
 }
@@ -322,6 +325,8 @@ impl CPU {
     }
 
     fn draw(&mut self, x: u8, y: u8, n: u8) {
+        self.drawing = true;
+
         let vx = self.V[x as usize] & 0x3F;
         let vy = self.V[y as usize] & 0x1F;
 

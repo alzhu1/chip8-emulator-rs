@@ -17,9 +17,6 @@ fn main() -> Result<(), String> {
     let mut canvas = window.into_canvas().build()
         .expect("could not make a canvas");
 
-    canvas.set_draw_color(Color::RGB(0, 255, 255));
-    canvas.clear();
-    canvas.present();
     let mut event_pump = sdl_context.event_pump()?;
     let mut i = 0;
 
@@ -28,10 +25,10 @@ fn main() -> Result<(), String> {
 
     let mut global_timer = Instant::now();
 
+    let frame_ms = Duration::from_nanos(16_666_666);
+
     'running: loop {
-        // i = (i + 1) % 255;
-        // canvas.set_draw_color(Color::RGB(i, 64, 255 - i));
-        canvas.clear();
+        // TODO: Move event polling to a separate module
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} |
@@ -90,45 +87,70 @@ fn main() -> Result<(), String> {
             }
         }
 
-        let rects = cpu.pixels.iter().enumerate().flat_map(|(y, row)| {
-            row.iter().enumerate().map(move |(x, pixel)| {
-                let rect = Rect::new(x as i32 * 10, y as i32 * 10, 10, 10);
-                match *pixel {
-                    true => [Some(rect), None],
-                    false => [None, Some(rect)]
-                }
-            })
-        }).collect::<Vec<[Option<Rect>; 2]>>();
+        // Process 8 CPU instructions
+        let a = Instant::now();
+        cpu.process();
+        cpu.process();
+        cpu.process();
+        cpu.process();
+        cpu.process();
+        cpu.process();
+        cpu.process();
+        cpu.process();
 
-        canvas.set_draw_color(Color::WHITE);
+        // println!("Time for process: {}ms", a.elapsed().as_millis());
 
-        // let k = rects.iter().filter(|r| r[0].is_some()).map(|r| r[0].unwrap()).collect::<Vec<Rect>>();
+        // Decrement timers (as loop should be running at 60Hz)
+        cpu.decrement_timers();
 
-        canvas.fill_rects(rects.iter().filter(|r| r[0].is_some()).map(|r| r[0].unwrap()).collect::<Vec<Rect>>().as_slice())?;
-        canvas.set_draw_color(Color::BLACK);
-        canvas.fill_rects(rects.iter().filter(|r| r[1].is_some()).map(|r| r[1].unwrap()).collect::<Vec<Rect>>().as_slice())?;
+        let b = Instant::now();
 
-        // The rest of the game loop goes here...
+        if cpu.drawing {
+            cpu.drawing = false;
 
-        canvas.present();
-        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
-
-        if global_timer.elapsed().as_millis() >= 17 {
-            println!("1 sec passed");
-            cpu.decrement_timers();
-            global_timer = Instant::now();
+            // TODO: Move drawing to another module
+            canvas.clear();
+            let rects = cpu.pixels.iter().enumerate().flat_map(|(y, row)| {
+                row.iter().enumerate().map(move |(x, pixel)| {
+                    let rect = Rect::new(x as i32 * 10, y as i32 * 10, 10, 10);
+                    match *pixel {
+                        true => [Some(rect), None],
+                        false => [None, Some(rect)]
+                    }
+                })
+            }).collect::<Vec<[Option<Rect>; 2]>>();
+            canvas.set_draw_color(Color::WHITE);
+            canvas.fill_rects(rects.iter().filter(|r| r[0].is_some()).map(|r| r[0].unwrap()).collect::<Vec<Rect>>().as_slice())?;
+            canvas.set_draw_color(Color::BLACK);
+            canvas.fill_rects(rects.iter().filter(|r| r[1].is_some()).map(|r| r[1].unwrap()).collect::<Vec<Rect>>().as_slice())?;
+            canvas.present();
         }
 
-        if auto {
-            cpu.process();
-            cpu.process();
-            cpu.process();
-            cpu.process();
-            cpu.process();
-            cpu.process();
-            cpu.process();
-            cpu.process();
+        // println!("Draw time: {}ms", b.elapsed().as_millis());
+
+        println!("Process + draw time: {}ms", a.elapsed().as_millis());
+
+        // TODO: Need to figure out timing
+        // Thinking that we could do the following:
+        /*
+         * The main loop runs at a consistent frame rate (i.e. 60 FPS)
+         * We process CPU instructions, and calculate the amount of instructions that should be processed
+         * Use https://jackson-s.me/2019/07/13/Chip-8-Instruction-Scheduling-and-Frequency.html as ref
+         * (Alternative can just aim for CPU rate of ~500hz)
+         * 
+         * If the CPU has processed enough, check if we need to draw to the screen
+         * 
+         * 
+         */
+
+        let remaining_time = frame_ms.saturating_sub(a.elapsed());
+
+        if !remaining_time.is_zero() {
+            std::thread::sleep(remaining_time);
         }
+
+        // println!("Elapsed time for frame: {}ms", global_timer.elapsed().as_millis());
+        global_timer = Instant::now();
     }
 
     Ok(())
