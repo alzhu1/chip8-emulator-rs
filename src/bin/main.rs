@@ -89,18 +89,14 @@ fn main() -> Result<(), String> {
 
         // Process 8 CPU instructions
         let a = Instant::now();
-        cpu.process();
-        cpu.process();
-        cpu.process();
-        cpu.process();
-        cpu.process();
-        cpu.process();
-        cpu.process();
-        cpu.process();
+        for _ in 0..20 {
+            cpu.process();
 
-        // println!("Time for process: {}ms", a.elapsed().as_millis());
+            if cpu.drawing {
+                break;
+            }
+        }
 
-        // Decrement timers (as loop should be running at 60Hz)
         cpu.decrement_timers();
 
         let b = Instant::now();
@@ -128,7 +124,7 @@ fn main() -> Result<(), String> {
 
         // println!("Draw time: {}ms", b.elapsed().as_millis());
 
-        println!("Process + draw time: {}ms", a.elapsed().as_millis());
+        // println!("Process + draw time: {}ms", a.elapsed().as_millis());
 
         // TODO: Need to figure out timing
         // Thinking that we could do the following:
