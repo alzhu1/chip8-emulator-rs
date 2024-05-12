@@ -1,3 +1,5 @@
+use std::{fs::File, io::{BufReader, Read}};
+
 use rand;
 
 // TODO: To support CHIP-8 variants, could introduce an enum to Chip8 struct
@@ -27,8 +29,8 @@ const FONT_BYTES: [u8; 80] = [
 
 // Entry point to chip8 emulator
 pub struct CPU {
-    pixels: [[bool; 32]; 64],
-    memory: [u8; 4096],
+    pub pixels: [[bool; 64]; 32],
+    pub memory: [u8; 4096],
 
     V: [u8; 0x10], // registers
     I: u16,       // 12-bit index reg
@@ -51,8 +53,23 @@ impl Default for CPU {
             memory[FONT_LOCATION as usize + i] = font_byte;
         }
 
+        let file = File::open("test_rom.ch8").unwrap();
+        for (i, a) in BufReader::new(file).bytes().enumerate() {
+            memory[0x200 + i] = a.unwrap();
+        }
+
+        // for (i, rm) in test_rom.iter().enumerate() {
+        //     let offset = i * 2;
+
+        //     let temp = rm.to_be_bytes();
+        //     memory[0x200 + offset] = temp[0];
+        //     memory[0x200 + offset + 1] = temp[1];
+        // }
+
+        let pixels = [[false; 64]; 32];
+
         Self {
-            pixels: [[false; 32]; 64],
+            pixels,
             memory,
             V: [0; 0x10],
             I: 0,
@@ -85,7 +102,7 @@ impl Default for CPU {
 // }
 
 impl CPU {
-    fn process(&mut self) {
+    pub fn process(&mut self) {
         let upper = self.memory[self.pc];
         let lower = self.memory[self.pc + 1];
         let instruction = ((upper as u16) << 8) | (lower as u16);
@@ -96,8 +113,12 @@ impl CPU {
         // let [_upper, lower] = instruction.to_be_bytes();
         // let [b1, b2, b3, b4] = [12, 8, 4, 0].map(|b| ((instruction.to_be() >> b) & 0xF) as u8);
 
+
+        // println!("PC = {:#x}, Instruction: {:#x}", self.pc, instruction);
+
         // Increment here, so that jumps aren't affected
         self.pc += 2;
+
 
         match b1 {
             0 => {
@@ -150,7 +171,7 @@ impl CPU {
     }
 
     fn clear_screen(&mut self) {
-        self.pixels.fill(Default::default());
+        self.pixels.fill([false; 64]);
     }
 
     fn call(&mut self, value: u16) {
@@ -159,8 +180,9 @@ impl CPU {
         self.pc = value as usize;
     }
     fn return_subr(&mut self) {
-        self.pc = self.stack[self.sp];
+        // Decrement SP first to get back the original return PC
         self.sp -= 1;
+        self.pc = self.stack[self.sp];
     }
 
     fn jmp(&mut self, value: u16) {
@@ -205,27 +227,29 @@ impl CPU {
             4 => {
                 let (res, overflow) = self.V[x].overflowing_add(self.V[y]);
                 self.V[x] = res;
-                self.V[0xf] = overflow as u8;
+                self.V[0xF] = overflow as u8;
             },
             5 => {
                 let (res, underflow) = self.V[x].overflowing_sub(self.V[y]);
                 self.V[x] = res;
-                self.V[0xf] = underflow as u8;
+                self.V[0xF] = !underflow as u8;
             },
             6 => {
                 let index = if legacy { y } else { x };
-                self.V[0xf] = ((self.V[index] & 0x1) == 0x1) as u8;
-                self.V[index] >>= 1;
+                let lsb = ((self.V[index] & 0x1) == 0x1) as u8;
+                self.V[index] = self.V[index] >> 1;
+                self.V[0xF] = lsb;
             },
             7 => {
                 let (res, underflow) = self.V[y].overflowing_sub(self.V[x]);
                 self.V[x] = res;
-                self.V[0xf] = underflow as u8;
+                self.V[0xF] = !underflow as u8;
             },
             0xE => {
                 let index = if legacy { y } else { x };
-                self.V[0xf] = ((self.V[index] & 0x80) == 0x80) as u8;
-                self.V[index] <<= 1;
+                let msb = ((self.V[index] & 0x80) == 0x80) as u8;
+                self.V[index] = self.V[index] << 1;
+                self.V[0xF] = msb;
             },
             _ => unreachable!()
         }
@@ -261,10 +285,10 @@ impl CPU {
 
         // Behavior: the starting position should wrap (x & 0x3F, y & 0x1F)
         // But the drawing should NOT wrap
-        for index in self.I..=self.I + n as u16 {
+        for index in self.I..self.I + n as u16 {
             let mem_value = self.memory[index as usize];
 
-            let y_offset = (self.I - index) as u8;
+            let y_offset = (index - self.I) as u8;
             for x_offset in 0..8 {
                 let pixel_value = (1u8 << 7 - x_offset) & mem_value != 0;
 

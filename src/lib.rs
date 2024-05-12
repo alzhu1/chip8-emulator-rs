@@ -1,4 +1,4 @@
-mod cpu;
+pub mod cpu;
 
 // // TODO: To support CHIP-8 variants, could introduce an enum to Chip8 struct
 
