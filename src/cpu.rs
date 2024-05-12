@@ -122,14 +122,15 @@ impl CPU {
 
     pub fn press_key(&mut self, key_index: u8) {
         self.key |= 1u16 << key_index;
-        if let PollingKeyPress::Polling(x) = self.polling_key_press {
-            self.V[x] = key_index;
-            self.polling_key_press = PollingKeyPress::NotPolling;
-        }
     }
 
     pub fn release_key(&mut self, key_index: u8) {
         self.key &= !(1u16 << key_index);
+
+        if let PollingKeyPress::Polling(x) = self.polling_key_press {
+            self.V[x] = key_index;
+            self.polling_key_press = PollingKeyPress::NotPolling;
+        }
     }
 
     pub fn process(&mut self) {
