@@ -27,6 +27,11 @@ const FONT_BYTES: [u8; 80] = [
     0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 ];
 
+enum PollingKeyPress {
+    Polling(usize),
+    NotPolling
+}
+
 // Entry point to chip8 emulator
 pub struct CPU {
     pub pixels: [[bool; 64]; 32],
@@ -44,7 +49,7 @@ pub struct CPU {
 
     // TODO: Array or bitmask?
     key: u16,
-    polling_key_press: bool
+    polling_key_press: PollingKeyPress
 }
 
 impl Default for CPU {
@@ -81,7 +86,7 @@ impl Default for CPU {
             stack: [0; 16],
             sp: 0,
             key: 0,
-            polling_key_press: false
+            polling_key_press: PollingKeyPress::NotPolling
         }
     }
 }
@@ -117,7 +122,10 @@ impl CPU {
 
     pub fn press_key(&mut self, key_index: u8) {
         self.key |= 1u16 << key_index;
-        self.polling_key_press = false;
+        if let PollingKeyPress::Polling(x) = self.polling_key_press {
+            self.V[x] = key_index;
+            self.polling_key_press = PollingKeyPress::NotPolling;
+        }
     }
 
     pub fn release_key(&mut self, key_index: u8) {
@@ -125,7 +133,7 @@ impl CPU {
     }
 
     pub fn process(&mut self) {
-        if self.polling_key_press {
+        if let PollingKeyPress::Polling(_) = self.polling_key_press {
             return;
         }
 
@@ -355,7 +363,7 @@ impl CPU {
         }
     }
     fn get_key(&mut self, x: u8) {
-        self.polling_key_press = true;
+        self.polling_key_press = PollingKeyPress::Polling(x as usize);
     }
 
     fn set_delay(&mut self, x: u8) {}
