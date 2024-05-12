@@ -360,7 +360,7 @@ impl CPU {
     // TODO: How to get key input?f
     fn key_check(&mut self, x: u8, equals: bool) {
         let vx = self.V[x as usize];
-        println!("Checking input, x = {}, vx = {}, key state = {:#x}", x, vx, self.key);
+        // println!("Checking input, x = {}, vx = {}, key state = {:#x}", x, vx, self.key);
         if match equals {
             true => (1u16 << vx) & self.key != 0,
             false => (1u16 << vx) & self.key == 0
@@ -372,8 +372,12 @@ impl CPU {
         self.polling_key_press = PollingKeyPress::Polling(x as usize);
     }
 
-    fn set_delay(&mut self, x: u8) {}
-    fn set_sound(&mut self, x: u8) {}
+    fn set_delay(&mut self, x: u8) {
+        self.delay_timer = self.V[x as usize];
+    }
+    fn set_sound(&mut self, x: u8) {
+        self.sound_timer = self.V[x as usize];
+    }
 
     fn reg_dump(&mut self, x: u8) {
         for x_index in 0..=x {
