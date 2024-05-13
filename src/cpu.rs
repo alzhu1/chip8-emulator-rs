@@ -41,7 +41,7 @@ pub struct CPU {
     I: u16,       // 12-bit index reg
     pc: usize,
     delay_timer: u8,
-    sound_timer: u8,
+    pub sound_timer: u8,
 
     // TODO: Is this the best place to put this?
     stack: [usize; 16],
