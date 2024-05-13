@@ -1,11 +1,6 @@
 #![allow(non_snake_case)]
 
-use std::{
-    fs::File,
-    io::{BufReader, Read},
-};
-
-use rand;
+use std::{fs::File, io::Read};
 
 use crate::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
@@ -79,7 +74,7 @@ impl Default for CPU {
             stack: [0; 16],
             sp: 0,
             keys: 0,
-            polling_key_press: PollingKeyPress::NotPolling
+            polling_key_press: PollingKeyPress::NotPolling,
         }
     }
 }

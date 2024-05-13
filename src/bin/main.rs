@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = std::env::args();
     let rom = match args.len() {
         2 => args.last().unwrap(),
-        _ => String::from("test_rom.ch8")
+        _ => String::from("test_rom.ch8"),
     };
 
     cpu.load_rom(rom);
