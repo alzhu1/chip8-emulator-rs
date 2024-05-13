@@ -15,6 +15,7 @@ impl SDLInput {
 }
 
 impl Input for SDLInput {
+    // TODO: Seeing some dropped inputs for key release (and maybe key press)
     fn poll_input(&mut self) -> Option<InputEvent> {
         let mut input = None;
 

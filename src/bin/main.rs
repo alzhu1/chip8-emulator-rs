@@ -20,6 +20,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut drawing = false;
 
+    let args = std::env::args();
+    let rom = match args.len() {
+        2 => args.last().unwrap(),
+        _ => String::from("test_rom.ch8")
+    };
+
+    cpu.load_rom(rom);
+
     loop {
         let frame_start_time = Instant::now();
         if let Some(input) = sdl_input.poll_input() {

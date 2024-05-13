@@ -65,11 +65,6 @@ impl Default for CPU {
             memory[FONT_LOCATION as usize + i] = font_byte;
         }
 
-        let file = File::open("test_rom.ch8").unwrap();
-        for (i, a) in BufReader::new(file).bytes().enumerate() {
-            memory[0x200 + i] = a.unwrap();
-        }
-
         let pixels = [[false; SCREEN_WIDTH]; SCREEN_HEIGHT];
 
         Self {
@@ -90,6 +85,11 @@ impl Default for CPU {
 }
 
 impl CPU {
+    pub fn load_rom(&mut self, rom: String) {
+        let mut file = File::open(rom).unwrap();
+        file.read(&mut self.memory[0x200..]).unwrap();
+    }
+
     pub fn decrement_timers(&mut self) {
         if self.delay_timer > 0 {
             self.delay_timer -= 1;
