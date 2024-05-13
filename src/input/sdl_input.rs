@@ -16,12 +16,10 @@ impl SDLInput {
 
 impl Input for SDLInput {
     fn poll_input(&mut self) -> Option<InputEvent> {
-        let mut input = None;
-
         for event in self.event_pump.poll_iter() {
             println!("Event: {:?}", event);
 
-            input = match event {
+            let input = match event {
                 Event::Quit { .. } => Some(InputEvent::KeyPressed(InputKey::Quit)),
                 Event::KeyDown {
                     keycode: Some(keycode),
@@ -68,14 +66,14 @@ impl Input for SDLInput {
                     Keycode::F => Some(InputEvent::KeyReleased(InputKey::KF)),
                     _ => None,
                 },
-                _ => break,
+                _ => continue,
             };
 
             if input.is_some() {
-                break;
+                return input;
             }
         }
 
-        input
+        None
     }
 }
