@@ -5,6 +5,7 @@ edition = "2021"
 license = "MIT"
 repository = "https://github.com/alzhu1/chip8-emulator-rs"
 readme = "README.md"
+description = "CHIP-8 emulator"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
