@@ -1,4 +1,4 @@
-use chip8::{
+use chip8_emulator_rs::{
     audio::{sdl_audio::SDLAudio, Audio},
     cpu::CPU,
     input::{sdl_input::SDLInput, Input, InputEvent, InputKey},
