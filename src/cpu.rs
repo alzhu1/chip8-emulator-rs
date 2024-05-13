@@ -1,6 +1,11 @@
-use std::{fs::File, io::{BufReader, Read}};
+use std::{
+    fs::File,
+    io::{BufReader, Read},
+};
 
 use rand;
+
+use crate::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
 // TODO: To support CHIP-8 variants, could introduce an enum to Chip8 struct
 
@@ -24,21 +29,21 @@ const FONT_BYTES: [u8; 80] = [
     0xF0, 0x80, 0x80, 0x80, 0xF0, // C
     0xE0, 0x90, 0x90, 0x90, 0xE0, // D
     0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
-    0xF0, 0x80, 0xF0, 0x80, 0x80  // F
+    0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 ];
 
 enum PollingKeyPress {
     Polling(usize),
-    NotPolling
+    NotPolling,
 }
 
 // Entry point to chip8 emulator
 pub struct CPU {
-    pub pixels: [[bool; 64]; 32],
+    pub pixels: [[bool; SCREEN_WIDTH]; SCREEN_HEIGHT],
     pub memory: [u8; 4096],
 
     V: [u8; 0x10], // registers
-    I: u16,       // 12-bit index reg
+    I: u16,        // 12-bit index reg
     pc: usize,
     delay_timer: u8,
     pub sound_timer: u8,
@@ -51,7 +56,7 @@ pub struct CPU {
     key: u16,
     polling_key_press: PollingKeyPress,
 
-    pub drawing: bool
+    pub drawing: bool,
 }
 
 impl Default for CPU {
@@ -74,7 +79,7 @@ impl Default for CPU {
         //     memory[0x200 + offset + 1] = temp[1];
         // }
 
-        let pixels = [[false; 64]; 32];
+        let pixels = [[false; SCREEN_WIDTH]; SCREEN_HEIGHT];
 
         Self {
             pixels,
@@ -89,7 +94,7 @@ impl Default for CPU {
             sp: 0,
             key: 0,
             polling_key_press: PollingKeyPress::NotPolling,
-            drawing: false
+            drawing: false,
         }
     }
 }
@@ -114,7 +119,7 @@ impl Default for CPU {
 impl CPU {
     pub fn decrement_timers(&mut self) {
         if self.delay_timer > 0 {
-            println!("Decrementing delay timer, old value = {}", self.delay_timer);
+            // println!("Decrementing delay timer, old value = {}", self.delay_timer);
             self.delay_timer -= 1;
         }
 
@@ -151,20 +156,16 @@ impl CPU {
         // let [_upper, lower] = instruction.to_be_bytes();
         // let [b1, b2, b3, b4] = [12, 8, 4, 0].map(|b| ((instruction.to_be() >> b) & 0xF) as u8);
 
-
         // println!("PC = {:#x}, Instruction: {:#x}", self.pc, instruction);
 
         // Increment here, so that jumps aren't affected
         self.pc += 2;
 
-
         match b1 {
-            0 => {
-                match lower {
-                    0xE0 => self.clear_screen(),
-                    0xEE => self.return_subr(),
-                    _ => self.sys(instruction & 0xFFF)
-                }
+            0 => match lower {
+                0xE0 => self.clear_screen(),
+                0xEE => self.return_subr(),
+                _ => self.sys(instruction & 0xFFF),
             },
             1 => self.jmp(instruction & 0xFFF),
             2 => self.call(instruction & 0xFFF),
@@ -179,28 +180,24 @@ impl CPU {
             0xB => self.jmp_relative(instruction & 0xFFF),
             0xC => self.set_random(b2, lower),
             0xD => self.draw(b2, b3, b4),
-            0xE => {
-                match lower {
-                    0x9E => self.key_check(b2, true),
-                    0xA1 => self.key_check(b2, false),
-                    _ => unreachable!()
-                }
+            0xE => match lower {
+                0x9E => self.key_check(b2, true),
+                0xA1 => self.key_check(b2, false),
+                _ => unreachable!(),
             },
-            0xF => {
-                match lower {
-                    0x07 => self.set_immediate(b2, self.delay_timer),
-                    0x0A => self.get_key(b2),
-                    0x15 => self.set_delay(b2),
-                    0x18 => self.set_sound(b2),
-                    0x1E => self.add_i(b2),
-                    0x29 => self.set_i_sprite(b2),
-                    0x33 => self.set_bcd(b2),
-                    0x55 => self.reg_dump(b2),
-                    0x65 => self.reg_load(b2),
-                    _ => unreachable!()
-                }
+            0xF => match lower {
+                0x07 => self.set_immediate(b2, self.delay_timer),
+                0x0A => self.get_key(b2),
+                0x15 => self.set_delay(b2),
+                0x18 => self.set_sound(b2),
+                0x1E => self.add_i(b2),
+                0x29 => self.set_i_sprite(b2),
+                0x33 => self.set_bcd(b2),
+                0x55 => self.reg_dump(b2),
+                0x65 => self.reg_load(b2),
+                _ => unreachable!(),
             },
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 
@@ -209,7 +206,7 @@ impl CPU {
     }
 
     fn clear_screen(&mut self) {
-        self.pixels.fill([false; 64]);
+        self.pixels.fill([false; SCREEN_WIDTH]);
     }
 
     fn call(&mut self, value: u16) {
@@ -233,11 +230,15 @@ impl CPU {
     // TODO: Could maybe simplify using an enum
     fn cond_check(&mut self, x: u8, (cmp_value, is_y): (u8, bool), equals: bool) {
         let vx = self.V[x as usize];
-        let check = if is_y { self.V[cmp_value as usize] } else { cmp_value };
+        let check = if is_y {
+            self.V[cmp_value as usize]
+        } else {
+            cmp_value
+        };
 
         if match equals {
             true => vx == check,
-            false => vx != check
+            false => vx != check,
         } {
             self.pc += 2;
         }
@@ -262,43 +263,43 @@ impl CPU {
             1 => {
                 self.V[x] |= self.V[y];
                 self.V[0xF] = 0;
-            },
+            }
             2 => {
                 self.V[x] &= self.V[y];
                 self.V[0xF] = 0;
-            },
+            }
             3 => {
                 self.V[x] ^= self.V[y];
                 self.V[0xF] = 0;
-            },
+            }
             4 => {
                 let (res, overflow) = self.V[x].overflowing_add(self.V[y]);
                 self.V[x] = res;
                 self.V[0xF] = overflow as u8;
-            },
+            }
             5 => {
                 let (res, underflow) = self.V[x].overflowing_sub(self.V[y]);
                 self.V[x] = res;
                 self.V[0xF] = !underflow as u8;
-            },
+            }
             6 => {
                 let index = if legacy { y } else { x };
                 let lsb = ((self.V[index] & 0x1) == 0x1) as u8;
                 self.V[x] = self.V[index] >> 1;
                 self.V[0xF] = lsb;
-            },
+            }
             7 => {
                 let (res, underflow) = self.V[y].overflowing_sub(self.V[x]);
                 self.V[x] = res;
                 self.V[0xF] = !underflow as u8;
-            },
+            }
             0xE => {
                 let index = if legacy { y } else { x };
                 let msb = ((self.V[index] & 0x80) == 0x80) as u8;
                 self.V[x] = self.V[index] << 1;
                 self.V[0xF] = msb;
-            },
-            _ => unreachable!()
+            }
+            _ => unreachable!(),
         }
     }
     fn set_random(&mut self, x: u8, nn: u8) {
@@ -363,7 +364,7 @@ impl CPU {
         // println!("Checking input, x = {}, vx = {}, key state = {:#x}", x, vx, self.key);
         if match equals {
             true => (1u16 << vx) & self.key != 0,
-            false => (1u16 << vx) & self.key == 0
+            false => (1u16 << vx) & self.key == 0,
         } {
             self.pc += 2;
         }
