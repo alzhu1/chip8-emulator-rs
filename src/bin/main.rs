@@ -3,6 +3,7 @@ use chip8_emulator_rs::{
     cpu::CPU,
     input::{sdl_input::SDLInput, Input, InputEvent, InputKey},
     video::{sdl_video::SDLVideo, Video},
+    SCREEN_HEIGHT, SCREEN_WIDTH,
 };
 
 use std::time::{Duration, Instant};
@@ -10,11 +11,12 @@ use std::time::{Duration, Instant};
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sdl_context = sdl2::init()?;
 
+    // TODO: Derive height/width from CPU, not an import
+    let mut cpu = CPU::default();
+
     let mut sdl_audio = SDLAudio::new(&sdl_context)?;
     let mut sdl_input = SDLInput::new(&sdl_context)?;
-    let mut sdl_video = SDLVideo::new(&sdl_context, 10)?;
-
-    let mut cpu = CPU::default();
+    let mut sdl_video = SDLVideo::new(&sdl_context, 10, SCREEN_WIDTH, SCREEN_HEIGHT)?;
 
     let frame_ms = Duration::from_nanos(16_666_666);
 

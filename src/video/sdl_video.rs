@@ -1,7 +1,5 @@
 use sdl2::{pixels::Color, rect::Rect, render::Canvas, video::Window, Sdl};
 
-use crate::{SCREEN_HEIGHT, SCREEN_WIDTH};
-
 use super::Video;
 
 pub struct SDLVideo {
@@ -10,11 +8,16 @@ pub struct SDLVideo {
 }
 
 impl SDLVideo {
-    pub fn new(sdl_context: &Sdl, scale: u32) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(
+        sdl_context: &Sdl,
+        scale: u32,
+        width: usize,
+        height: usize,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let video_subsystem = sdl_context.video()?;
 
-        let window_width = SCREEN_WIDTH as u32 * scale;
-        let window_height = SCREEN_HEIGHT as u32 * scale;
+        let window_width = width as u32 * scale;
+        let window_height = height as u32 * scale;
 
         let window = video_subsystem
             .window("TODO: BETTER NAME", window_width, window_height)
@@ -28,24 +31,28 @@ impl SDLVideo {
 }
 
 impl Video for SDLVideo {
-    fn draw_to_window(&mut self, pixels: &[[bool; SCREEN_WIDTH]; SCREEN_HEIGHT]) {
+    fn draw_to_window<'a, I, J>(&mut self, pixels: I)
+    where
+        I: IntoIterator<Item = J>,
+        J: IntoIterator<Item = &'a bool>,
+    {
         self.canvas.set_draw_color(Color::BLACK);
         self.canvas.clear();
 
         let scale = self.scale;
 
         let rects = pixels
-            .iter()
+            .into_iter()
             .enumerate()
             .flat_map(|(y, row)| {
-                row.iter().enumerate().filter_map(move |(x, pixel)| {
+                row.into_iter().enumerate().filter_map(move |(x, pixel)| {
                     let rect = Rect::new(
                         x as i32 * scale as i32,
                         y as i32 * scale as i32,
                         scale,
                         scale,
                     );
-                    match *pixel {
+                    match pixel {
                         true => Some(rect),
                         false => None,
                     }

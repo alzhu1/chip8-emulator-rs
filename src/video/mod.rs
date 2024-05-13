@@ -1,7 +1,8 @@
-use crate::{SCREEN_HEIGHT, SCREEN_WIDTH};
-
 pub mod sdl_video;
 
 pub trait Video {
-    fn draw_to_window(&mut self, pixels: &[[bool; SCREEN_WIDTH]; SCREEN_HEIGHT]);
+    fn draw_to_window<'a, I, J>(&mut self, pixels: I)
+    where
+        I: IntoIterator<Item = J>,
+        J: IntoIterator<Item = &'a bool>;
 }
