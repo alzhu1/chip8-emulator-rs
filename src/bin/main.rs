@@ -1,4 +1,3 @@
-// use chip8::Chip8;
 use chip8::{
     audio::{sdl_audio::SDLAudio, Audio},
     cpu::CPU,
@@ -19,6 +18,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let frame_ms = Duration::from_nanos(16_666_666);
 
+    let mut drawing = false;
+
     loop {
         let frame_start_time = Instant::now();
         if let Some(input) = sdl_input.poll_input() {
@@ -37,23 +38,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Process CPU instructions
         for _ in 0..20 {
-            cpu.process();
+            cpu.process(&mut drawing);
 
-            if cpu.drawing {
+            if drawing {
                 break;
             }
         }
 
         cpu.decrement_timers();
 
-        if cpu.sound_timer == 0 {
-            sdl_audio.pause_audio();
-        } else {
+        if cpu.is_sound_active() {
             sdl_audio.resume_audio();
+        } else {
+            sdl_audio.pause_audio();
         }
 
-        if cpu.drawing {
-            cpu.drawing = false;
+        if drawing {
+            drawing = false;
             sdl_video.draw_to_window(&cpu.pixels);
         }
 

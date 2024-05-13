@@ -37,7 +37,7 @@ impl Video for SDLVideo {
         let rects = pixels
             .iter()
             .enumerate()
-            .map(|(y, row)| {
+            .flat_map(|(y, row)| {
                 row.iter().enumerate().filter_map(move |(x, pixel)| {
                     let rect = Rect::new(
                         x as i32 * scale as i32,
@@ -51,7 +51,6 @@ impl Video for SDLVideo {
                     }
                 })
             })
-            .flatten()
             .collect::<Vec<Rect>>();
 
         // Draw pixels

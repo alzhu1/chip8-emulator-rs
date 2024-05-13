@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use std::{
     fs::File,
     io::{BufReader, Read},
@@ -40,23 +42,20 @@ enum PollingKeyPress {
 // Entry point to chip8 emulator
 pub struct CPU {
     pub pixels: [[bool; SCREEN_WIDTH]; SCREEN_HEIGHT],
-    pub memory: [u8; 4096],
-
+    memory: [u8; 4096],
     V: [u8; 0x10], // registers
     I: u16,        // 12-bit index reg
     pc: usize,
     delay_timer: u8,
-    pub sound_timer: u8,
+    sound_timer: u8,
 
     // TODO: Is this the best place to put this?
     stack: [usize; 16],
     sp: usize,
 
     // TODO: Array or bitmask?
-    key: u16,
+    keys: u16,
     polling_key_press: PollingKeyPress,
-
-    pub drawing: bool,
 }
 
 impl Default for CPU {
@@ -71,14 +70,6 @@ impl Default for CPU {
             memory[0x200 + i] = a.unwrap();
         }
 
-        // for (i, rm) in test_rom.iter().enumerate() {
-        //     let offset = i * 2;
-
-        //     let temp = rm.to_be_bytes();
-        //     memory[0x200 + offset] = temp[0];
-        //     memory[0x200 + offset + 1] = temp[1];
-        // }
-
         let pixels = [[false; SCREEN_WIDTH]; SCREEN_HEIGHT];
 
         Self {
@@ -92,34 +83,15 @@ impl Default for CPU {
             sound_timer: 0,
             stack: [0; 16],
             sp: 0,
-            key: 0,
-            polling_key_press: PollingKeyPress::NotPolling,
-            drawing: false,
+            keys: 0,
+            polling_key_press: PollingKeyPress::NotPolling
         }
     }
 }
 
-// impl CPU {
-//     pub fn new() -> Self {
-//         Self::default()
-//     }
-
-//     // Consume after use?
-//     pub fn run(mut self) {
-//         loop {
-//             self.test();
-//         }
-//     }
-
-//     fn test(&mut self) {
-//         self.memory[0] = 1;
-//     }
-// }
-
 impl CPU {
     pub fn decrement_timers(&mut self) {
         if self.delay_timer > 0 {
-            // println!("Decrementing delay timer, old value = {}", self.delay_timer);
             self.delay_timer -= 1;
         }
 
@@ -128,12 +100,16 @@ impl CPU {
         }
     }
 
+    pub fn is_sound_active(&self) -> bool {
+        self.sound_timer > 0
+    }
+
     pub fn press_key(&mut self, key_index: u8) {
-        self.key |= 1u16 << key_index;
+        self.keys |= 1u16 << key_index;
     }
 
     pub fn release_key(&mut self, key_index: u8) {
-        self.key &= !(1u16 << key_index);
+        self.keys &= !(1u16 << key_index);
 
         if let PollingKeyPress::Polling(x) = self.polling_key_press {
             self.V[x] = key_index;
@@ -141,7 +117,7 @@ impl CPU {
         }
     }
 
-    pub fn process(&mut self) {
+    pub fn process(&mut self, drawing: &mut bool) {
         if let PollingKeyPress::Polling(_) = self.polling_key_press {
             return;
         }
@@ -152,11 +128,6 @@ impl CPU {
 
         let (b1, b2) = (upper >> 4, upper & 0xF);
         let (b3, b4) = (lower >> 4, lower & 0xF);
-
-        // let [_upper, lower] = instruction.to_be_bytes();
-        // let [b1, b2, b3, b4] = [12, 8, 4, 0].map(|b| ((instruction.to_be() >> b) & 0xF) as u8);
-
-        // println!("PC = {:#x}, Instruction: {:#x}", self.pc, instruction);
 
         // Increment here, so that jumps aren't affected
         self.pc += 2;
@@ -179,7 +150,7 @@ impl CPU {
             0xA => self.set_i(instruction & 0xFFF),
             0xB => self.jmp_relative(instruction & 0xFFF),
             0xC => self.set_random(b2, lower),
-            0xD => self.draw(b2, b3, b4),
+            0xD => self.draw(b2, b3, b4, drawing),
             0xE => match lower {
                 0x9E => self.key_check(b2, true),
                 0xA1 => self.key_check(b2, false),
@@ -201,7 +172,7 @@ impl CPU {
         }
     }
 
-    fn sys(&mut self, value: u16) {
+    fn sys(&mut self, _value: u16) {
         // TODO: NOOP?
     }
 
@@ -310,7 +281,7 @@ impl CPU {
         self.I = value;
     }
     fn add_i(&mut self, x: u8) {
-        self.I = (self.I + self.V[x as usize] as u16); // TODO: ? & 0xFFF;
+        self.I += self.V[x as usize] as u16; // TODO: ? & 0xFFF;
     }
     fn set_i_sprite(&mut self, x: u8) {
         // VX should be a single hex value (0-F)
@@ -325,8 +296,8 @@ impl CPU {
         self.memory[self.I as usize + 2] = vx % 100 % 10;
     }
 
-    fn draw(&mut self, x: u8, y: u8, n: u8) {
-        self.drawing = true;
+    fn draw(&mut self, x: u8, y: u8, n: u8, drawing: &mut bool) {
+        *drawing = true;
 
         let vx = self.V[x as usize] & 0x3F;
         let vy = self.V[y as usize] & 0x1F;
@@ -340,7 +311,7 @@ impl CPU {
 
             let y_offset = (index - self.I) as u8;
             for x_offset in 0..8 {
-                let pixel_value = (1u8 << 7 - x_offset) & mem_value != 0;
+                let pixel_value = (1u8 << (7 - x_offset)) & mem_value != 0;
 
                 let y_index = (vy + y_offset) as usize;
                 let x_index = (vx + x_offset) as usize;
@@ -363,8 +334,8 @@ impl CPU {
         let vx = self.V[x as usize];
         // println!("Checking input, x = {}, vx = {}, key state = {:#x}", x, vx, self.key);
         if match equals {
-            true => (1u16 << vx) & self.key != 0,
-            false => (1u16 << vx) & self.key == 0,
+            true => (1u16 << vx) & self.keys != 0,
+            false => (1u16 << vx) & self.keys == 0,
         } {
             self.pc += 2;
         }
