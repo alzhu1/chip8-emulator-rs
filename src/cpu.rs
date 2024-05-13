@@ -9,7 +9,7 @@ use crate::{SCREEN_HEIGHT, SCREEN_WIDTH};
 // TODO: I think this whole thing is the CPU itself? So loop should be done outside of this?
 // Or the loop should be done in a Chip8 APP? Or this is renamed as CPU?
 
-const FONT_LOCATION: u16 = 0x0;
+const FONT_LOCATION: usize = 0x0;
 const FONT_BYTES: [u8; 80] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
@@ -34,30 +34,31 @@ enum PollingKeyPress {
     NotPolling,
 }
 
+enum CondCheck {
+    NN(u8),
+    VY(usize),
+}
+
 // Entry point to chip8 emulator
 pub struct CPU {
-    pub pixels: [[bool; SCREEN_WIDTH]; SCREEN_HEIGHT],
-    memory: [u8; 4096],
-    V: [u8; 0x10], // registers
-    I: u16,        // 12-bit index reg
-    pc: usize,
-    delay_timer: u8,
-    sound_timer: u8,
-
-    // TODO: Is this the best place to put this?
-    stack: [usize; 16],
-    sp: usize,
-
-    // TODO: Array or bitmask?
-    keys: u16,
-    polling_key_press: PollingKeyPress,
+    pub pixels: [[bool; SCREEN_WIDTH]; SCREEN_HEIGHT], // Pixel memory
+    memory: [u8; 4096],                                // RAM
+    V: [u8; 0x10],                                     // V registers
+    I: usize,                                          // 12-bit index reg
+    pc: usize,                                         // Program counter
+    delay_timer: u8,                                   // Delay timer
+    sound_timer: u8,                                   // Sound timer
+    stack: [usize; 16],                                // Stack for return addr
+    sp: usize,                                         // Stack pointer
+    keys: u16,                                         // Keys pressed
+    polling_key_press: PollingKeyPress,                // Check polling
 }
 
 impl Default for CPU {
     fn default() -> Self {
         let mut memory = [0; 4096];
         for (i, &font_byte) in FONT_BYTES.iter().enumerate() {
-            memory[FONT_LOCATION as usize + i] = font_byte;
+            memory[FONT_LOCATION + i] = font_byte;
         }
 
         let pixels = [[false; SCREEN_WIDTH]; SCREEN_HEIGHT];
@@ -82,6 +83,8 @@ impl Default for CPU {
 impl CPU {
     pub fn load_rom(&mut self, rom: String) {
         let mut file = File::open(rom).unwrap();
+
+        // TODO: Clippy complains about partial read
         file.read(&mut self.memory[0x200..]).unwrap();
     }
 
@@ -127,47 +130,54 @@ impl CPU {
         // Increment here, so that jumps aren't affected
         self.pc += 2;
 
+        // Helper vars
+        let nnn = (instruction & 0xFFF) as usize;
+        let nn = lower;
+        let x = b2 as usize;
+        let y = b3 as usize;
+        let n = b4 as usize;
+
         match b1 {
             0 => match lower {
                 0xE0 => self.clear_screen(),
                 0xEE => self.return_subr(),
-                _ => self.sys(instruction & 0xFFF),
+                _ => self.sys(nnn),
             },
-            1 => self.jmp(instruction & 0xFFF),
-            2 => self.call(instruction & 0xFFF),
-            3 => self.cond_check(b2, (lower, false), true),
-            4 => self.cond_check(b2, (lower, false), false),
-            5 if b4 == 0 => self.cond_check(b2, (b3, true), true),
-            6 => self.set_immediate(b2, lower),
-            7 => self.add_immediate(b2, lower),
-            8 => self.execute_arithmetic(b2, b3, b4),
-            9 => self.cond_check(b2, (b3, true), false),
-            0xA => self.set_i(instruction & 0xFFF),
-            0xB => self.jmp_relative(instruction & 0xFFF),
-            0xC => self.set_random(b2, lower),
-            0xD => self.draw(b2, b3, b4, drawing),
+            1 => self.jmp(nnn),
+            2 => self.call(nnn),
+            3 => self.cond_check(x, CondCheck::NN(nn), true),
+            4 => self.cond_check(x, CondCheck::NN(nn), false),
+            5 if b4 == 0 => self.cond_check(x, CondCheck::VY(y), true),
+            6 => self.set_immediate(x, nn),
+            7 => self.add_immediate(x, nn),
+            8 => self.execute_arithmetic(x, y, b4),
+            9 => self.cond_check(x, CondCheck::VY(y), false),
+            0xA => self.set_i(nnn),
+            0xB => self.jmp_relative(nnn),
+            0xC => self.set_random(x, nn),
+            0xD => self.draw(x, y, n, drawing),
             0xE => match lower {
-                0x9E => self.key_check(b2, true),
-                0xA1 => self.key_check(b2, false),
+                0x9E => self.key_check(x, true),
+                0xA1 => self.key_check(x, false),
                 _ => unreachable!(),
             },
             0xF => match lower {
-                0x07 => self.set_immediate(b2, self.delay_timer),
-                0x0A => self.get_key(b2),
-                0x15 => self.set_delay(b2),
-                0x18 => self.set_sound(b2),
-                0x1E => self.add_i(b2),
-                0x29 => self.set_i_sprite(b2),
-                0x33 => self.set_bcd(b2),
-                0x55 => self.reg_dump(b2),
-                0x65 => self.reg_load(b2),
+                0x07 => self.set_immediate(x, self.delay_timer),
+                0x0A => self.get_key(x),
+                0x15 => self.set_delay(x),
+                0x18 => self.set_sound(x),
+                0x1E => self.add_i(x),
+                0x29 => self.set_i_sprite(x),
+                0x33 => self.set_bcd(x),
+                0x55 => self.reg_dump(x),
+                0x65 => self.reg_load(x),
                 _ => unreachable!(),
             },
             _ => unreachable!(),
         }
     }
 
-    fn sys(&mut self, _value: u16) {
+    fn sys(&mut self, _nnn: usize) {
         // TODO: NOOP?
     }
 
@@ -175,10 +185,10 @@ impl CPU {
         self.pixels.fill([false; SCREEN_WIDTH]);
     }
 
-    fn call(&mut self, value: u16) {
+    fn call(&mut self, nnn: usize) {
         self.stack[self.sp] = self.pc;
         self.sp += 1;
-        self.pc = value as usize;
+        self.pc = nnn;
     }
     fn return_subr(&mut self) {
         // Decrement SP first to get back the original return PC
@@ -186,20 +196,18 @@ impl CPU {
         self.pc = self.stack[self.sp];
     }
 
-    fn jmp(&mut self, value: u16) {
-        self.pc = value as usize;
+    fn jmp(&mut self, nnn: usize) {
+        self.pc = nnn;
     }
-    fn jmp_relative(&mut self, value: u16) {
-        self.pc = value as usize + self.V[0] as usize;
+    fn jmp_relative(&mut self, nnn: usize) {
+        self.pc = nnn + self.V[0] as usize;
     }
 
-    // TODO: Could maybe simplify using an enum
-    fn cond_check(&mut self, x: u8, (cmp_value, is_y): (u8, bool), equals: bool) {
-        let vx = self.V[x as usize];
-        let check = if is_y {
-            self.V[cmp_value as usize]
-        } else {
-            cmp_value
+    fn cond_check(&mut self, x: usize, check: CondCheck, equals: bool) {
+        let vx = self.V[x];
+        let check = match check {
+            CondCheck::NN(nn) => nn,
+            CondCheck::VY(y) => self.V[y],
         };
 
         if match equals {
@@ -210,17 +218,14 @@ impl CPU {
         }
     }
 
-    fn set_immediate(&mut self, x: u8, nn: u8) {
-        self.V[x as usize] = nn;
+    fn set_immediate(&mut self, x: usize, nn: u8) {
+        self.V[x] = nn;
     }
-    fn add_immediate(&mut self, x: u8, nn: u8) {
-        let (res, _) = self.V[x as usize].overflowing_add(nn);
-        self.V[x as usize] = res;
+    fn add_immediate(&mut self, x: usize, nn: u8) {
+        self.V[x] = self.V[x].overflowing_add(nn).0;
     }
-    fn execute_arithmetic(&mut self, x: u8, y: u8, code: u8) {
-        let x = x as usize;
-        let y = y as usize;
 
+    fn execute_arithmetic(&mut self, x: usize, y: usize, code: u8) {
         // TODO: Parameterize legacy mode
         let legacy = true;
 
@@ -268,48 +273,48 @@ impl CPU {
             _ => unreachable!(),
         }
     }
-    fn set_random(&mut self, x: u8, nn: u8) {
-        self.V[x as usize] = rand::random::<u8>() & nn;
+    fn set_random(&mut self, x: usize, nn: u8) {
+        self.V[x] = rand::random::<u8>() & nn;
     }
 
-    fn set_i(&mut self, value: u16) {
-        self.I = value;
+    fn set_i(&mut self, nnn: usize) {
+        self.I = nnn;
     }
-    fn add_i(&mut self, x: u8) {
-        self.I += self.V[x as usize] as u16; // TODO: ? & 0xFFF;
+    fn add_i(&mut self, x: usize) {
+        self.I += self.V[x] as usize; // TODO: ? & 0xFFF;
     }
-    fn set_i_sprite(&mut self, x: u8) {
+    fn set_i_sprite(&mut self, x: usize) {
         // VX should be a single hex value (0-F)
         // Assuming fonts begin at 0x0, each font takes 5 bytes
-        self.I = FONT_LOCATION + (self.V[x as usize] as u16 * 5);
+        self.I = FONT_LOCATION + (self.V[x] as usize * 5);
     }
-    fn set_bcd(&mut self, x: u8) {
-        let vx = self.V[x as usize];
+    fn set_bcd(&mut self, x: usize) {
+        let vx = self.V[x];
 
-        self.memory[self.I as usize] = vx / 100;
-        self.memory[self.I as usize + 1] = vx % 100 / 10;
-        self.memory[self.I as usize + 2] = vx % 100 % 10;
+        self.memory[self.I] = vx / 100;
+        self.memory[self.I + 1] = vx % 100 / 10;
+        self.memory[self.I + 2] = vx % 100 % 10;
     }
 
-    fn draw(&mut self, x: u8, y: u8, n: u8, drawing: &mut bool) {
+    fn draw(&mut self, x: usize, y: usize, n: usize, drawing: &mut bool) {
         *drawing = true;
 
-        let vx = self.V[x as usize] & 0x3F;
-        let vy = self.V[y as usize] & 0x1F;
+        let vx = (self.V[x] & 0x3F) as usize;
+        let vy = (self.V[y] & 0x1F) as usize;
 
         self.V[0xF] = 0;
 
         // Behavior: the starting position should wrap (x & 0x3F, y & 0x1F)
         // But the drawing should NOT wrap
-        for index in self.I..self.I + n as u16 {
-            let mem_value = self.memory[index as usize];
+        for index in self.I..self.I + n {
+            let mem_value = self.memory[index];
 
-            let y_offset = (index - self.I) as u8;
+            let y_offset = index - self.I;
             for x_offset in 0..8 {
                 let pixel_value = (1u8 << (7 - x_offset)) & mem_value != 0;
 
-                let y_index = (vy + y_offset) as usize;
-                let x_index = (vx + x_offset) as usize;
+                let y_index = vy + y_offset;
+                let x_index = vx + x_offset;
 
                 if let Some(row) = self.pixels.get_mut(y_index) {
                     if let Some(pixel) = row.get_mut(x_index) {
@@ -324,9 +329,8 @@ impl CPU {
         }
     }
 
-    // TODO: How to get key input?f
-    fn key_check(&mut self, x: u8, equals: bool) {
-        let vx = self.V[x as usize];
+    fn key_check(&mut self, x: usize, equals: bool) {
+        let vx = self.V[x];
         // println!("Checking input, x = {}, vx = {}, key state = {:#x}", x, vx, self.key);
         if match equals {
             true => (1u16 << vx) & self.keys != 0,
@@ -335,27 +339,27 @@ impl CPU {
             self.pc += 2;
         }
     }
-    fn get_key(&mut self, x: u8) {
-        self.polling_key_press = PollingKeyPress::Polling(x as usize);
+    fn get_key(&mut self, x: usize) {
+        self.polling_key_press = PollingKeyPress::Polling(x);
     }
 
-    fn set_delay(&mut self, x: u8) {
-        self.delay_timer = self.V[x as usize];
+    fn set_delay(&mut self, x: usize) {
+        self.delay_timer = self.V[x];
     }
-    fn set_sound(&mut self, x: u8) {
-        self.sound_timer = self.V[x as usize];
+    fn set_sound(&mut self, x: usize) {
+        self.sound_timer = self.V[x];
     }
 
-    fn reg_dump(&mut self, x: u8) {
+    fn reg_dump(&mut self, x: usize) {
         for x_index in 0..=x {
-            self.memory[self.I as usize] = self.V[x_index as usize];
+            self.memory[self.I] = self.V[x_index];
             self.I += 1;
         }
         self.I += 1;
     }
-    fn reg_load(&mut self, x: u8) {
+    fn reg_load(&mut self, x: usize) {
         for x_index in 0..=x {
-            self.V[x_index as usize] = self.memory[self.I as usize];
+            self.V[x_index] = self.memory[self.I];
             self.I += 1;
         }
         self.I += 1;
