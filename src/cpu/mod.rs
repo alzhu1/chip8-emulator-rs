@@ -4,6 +4,14 @@ use std::{fs::File, io::Read};
 
 use crate::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
+mod config;
+
+use self::config::CPUConfig;
+
+// Export from CPU module
+pub use config::CPUVariant;
+
+
 // TODO: To support CHIP-8 variants, could introduce an enum to Chip8 struct
 
 // TODO: I think this whole thing is the CPU itself? So loop should be done outside of this?
@@ -41,6 +49,8 @@ enum CondCheck {
 
 // Entry point to chip8 emulator
 pub struct CPU {
+    config: CPUConfig,
+
     pub pixels: [[bool; SCREEN_WIDTH]; SCREEN_HEIGHT], // Pixel memory
     memory: [u8; 4096],                                // RAM
     V: [u8; 0x10],                                     // V registers
@@ -54,8 +64,8 @@ pub struct CPU {
     polling_key_press: PollingKeyPress,                // Check polling
 }
 
-impl Default for CPU {
-    fn default() -> Self {
+impl CPU {
+    pub fn new(variant: CPUVariant) -> Self {
         let mut memory = [0; 4096];
         for (i, &font_byte) in FONT_BYTES.iter().enumerate() {
             memory[FONT_LOCATION + i] = font_byte;
@@ -64,6 +74,7 @@ impl Default for CPU {
         let pixels = [[false; SCREEN_WIDTH]; SCREEN_HEIGHT];
 
         Self {
+            config: variant.into(),
             pixels,
             memory,
             V: [0; 0x10],
@@ -78,9 +89,7 @@ impl Default for CPU {
             polling_key_press: PollingKeyPress::NotPolling,
         }
     }
-}
 
-impl CPU {
     pub fn load_rom(&mut self, rom: String) {
         let mut file = File::open(rom).unwrap();
 
@@ -147,7 +156,12 @@ impl CPU {
             2 => self.call(nnn),
             3 => self.cond_check(x, CondCheck::NN(nn), true),
             4 => self.cond_check(x, CondCheck::NN(nn), false),
-            5 if b4 == 0 => self.cond_check(x, CondCheck::VY(y), true),
+            5 => {
+                match b4 {
+                    0 => self.cond_check(x, CondCheck::VY(y), true),
+                    _ => unreachable!()
+                }
+            },
             6 => self.set_immediate(x, nn),
             7 => self.add_immediate(x, nn),
             8 => self.execute_arithmetic(x, y, b4),
@@ -200,7 +214,10 @@ impl CPU {
         self.pc = nnn;
     }
     fn jmp_relative(&mut self, nnn: usize) {
-        self.pc = nnn + self.V[0] as usize;
+        self.pc = match self.config.jump_quirk {
+            true => nnn + self.V[(nnn >> 8) & 0xF] as usize,
+            false => nnn + self.V[0] as usize
+        }
     }
 
     fn cond_check(&mut self, x: usize, check: CondCheck, equals: bool) {
@@ -226,22 +243,25 @@ impl CPU {
     }
 
     fn execute_arithmetic(&mut self, x: usize, y: usize, code: u8) {
-        // TODO: Parameterize legacy mode
-        let legacy = true;
-
         match code {
             0 => self.V[x] = self.V[y],
             1 => {
                 self.V[x] |= self.V[y];
-                self.V[0xF] = 0;
+                if self.config.logic_quirk {
+                    self.V[0xF] = 0;
+                }
             }
             2 => {
                 self.V[x] &= self.V[y];
-                self.V[0xF] = 0;
+                if self.config.logic_quirk {
+                    self.V[0xF] = 0;
+                }
             }
             3 => {
                 self.V[x] ^= self.V[y];
-                self.V[0xF] = 0;
+                if self.config.logic_quirk {
+                    self.V[0xF] = 0;
+                }
             }
             4 => {
                 let (res, overflow) = self.V[x].overflowing_add(self.V[y]);
@@ -254,7 +274,7 @@ impl CPU {
                 self.V[0xF] = !underflow as u8;
             }
             6 => {
-                let index = if legacy { y } else { x };
+                let index = if self.config.shift_quirk { x } else { y };
                 let lsb = ((self.V[index] & 0x1) == 0x1) as u8;
                 self.V[x] = self.V[index] >> 1;
                 self.V[0xF] = lsb;
@@ -265,7 +285,7 @@ impl CPU {
                 self.V[0xF] = !underflow as u8;
             }
             0xE => {
-                let index = if legacy { y } else { x };
+                let index = if self.config.shift_quirk { x } else { y };
                 let msb = ((self.V[index] & 0x80) == 0x80) as u8;
                 self.V[x] = self.V[index] << 1;
                 self.V[0xF] = msb;
@@ -351,17 +371,27 @@ impl CPU {
     }
 
     fn reg_dump(&mut self, x: usize) {
+        let (quirk, offset) = self.config.load_store_quirk_offset;
+
         for x_index in 0..=x {
-            self.memory[self.I] = self.V[x_index];
-            self.I += 1;
+            self.memory[self.I + x_index] = self.V[x_index];
         }
-        self.I += 1;
+
+        if !quirk {
+            self.I += x;
+            self.I += offset;
+        }
     }
     fn reg_load(&mut self, x: usize) {
+        let (quirk, offset) = self.config.load_store_quirk_offset;
+
         for x_index in 0..=x {
-            self.V[x_index] = self.memory[self.I];
-            self.I += 1;
+            self.V[x_index] = self.memory[self.I + x_index];
         }
-        self.I += 1;
+
+        if !quirk {
+            self.I += x;
+            self.I += offset;
+        }
     }
 }

@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sdl_context = sdl2::init()?;
 
     // TODO: Derive height/width from CPU, not an import
-    let mut cpu = CPU::default();
+    let mut cpu = CPU::new(chip8_emulator_rs::cpu::CPUVariant::Chip8);
 
     let mut sdl_audio = SDLAudio::new(&sdl_context)?;
     let mut sdl_input = SDLInput::new(&sdl_context)?;
