@@ -11,7 +11,6 @@ use self::config::CPUConfig;
 // Export from CPU module
 pub use config::CPUVariant;
 
-
 // TODO: To support CHIP-8 variants, could introduce an enum to Chip8 struct
 
 // TODO: I think this whole thing is the CPU itself? So loop should be done outside of this?
@@ -49,8 +48,7 @@ enum CondCheck {
 
 // Entry point to chip8 emulator
 pub struct CPU {
-    config: CPUConfig,
-
+    config: CPUConfig,                                 // Config, for quirks/variant
     pub pixels: [[bool; SCREEN_WIDTH]; SCREEN_HEIGHT], // Pixel memory
     memory: [u8; 4096],                                // RAM
     V: [u8; 0x10],                                     // V registers
@@ -74,7 +72,7 @@ impl CPU {
         let pixels = [[false; SCREEN_WIDTH]; SCREEN_HEIGHT];
 
         Self {
-            config: variant.into(),
+            config: CPUConfig::from(variant),
             pixels,
             memory,
             V: [0; 0x10],
@@ -156,11 +154,9 @@ impl CPU {
             2 => self.call(nnn),
             3 => self.cond_check(x, CondCheck::NN(nn), true),
             4 => self.cond_check(x, CondCheck::NN(nn), false),
-            5 => {
-                match b4 {
-                    0 => self.cond_check(x, CondCheck::VY(y), true),
-                    _ => unreachable!()
-                }
+            5 => match b4 {
+                0 => self.cond_check(x, CondCheck::VY(y), true),
+                _ => unreachable!(),
             },
             6 => self.set_immediate(x, nn),
             7 => self.add_immediate(x, nn),
@@ -216,7 +212,7 @@ impl CPU {
     fn jmp_relative(&mut self, nnn: usize) {
         self.pc = match self.config.jump_quirk {
             true => nnn + self.V[(nnn >> 8) & 0xF] as usize,
-            false => nnn + self.V[0] as usize
+            false => nnn + self.V[0] as usize,
         }
     }
 
