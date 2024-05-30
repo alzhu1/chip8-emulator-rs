@@ -43,21 +43,21 @@ enum CondCheck {
 
 // Entry point to chip8 emulator
 pub struct CPU {
-    config: CPUConfig,                  // Config, for quirks/variant
-    pub pixels: [[bool; MAX_RESOLUTION_WIDTH]; MAX_RESOLUTION_HEIGHT],         // Pixel memory
-    memory: [u8; 4096],                 // RAM
-    V: [u8; 0x10],                      // V registers
-    I: usize,                           // 12-bit index reg
-    pc: usize,                          // Program counter
-    delay_timer: u8,                    // Delay timer
-    sound_timer: u8,                    // Sound timer
-    stack: [usize; 16],                 // Stack for return addr
-    sp: usize,                          // Stack pointer
-    keys: u16,                          // Keys pressed
+    config: CPUConfig, // Config, for quirks/variant
+    pub pixels: [[bool; MAX_RESOLUTION_WIDTH]; MAX_RESOLUTION_HEIGHT], // Pixel memory
+    memory: [u8; 4096], // RAM
+    V: [u8; 0x10],     // V registers
+    I: usize,          // 12-bit index reg
+    pc: usize,         // Program counter
+    delay_timer: u8,   // Delay timer
+    sound_timer: u8,   // Sound timer
+    stack: [usize; 16], // Stack for return addr
+    sp: usize,         // Stack pointer
+    keys: u16,         // Keys pressed
     polling_key_press: PollingKeyPress, // Check polling
 
     curr_res: (usize, usize),
-    pub max_res: (usize, usize)
+    pub max_res: (usize, usize),
 }
 
 impl CPU {
@@ -91,7 +91,7 @@ impl CPU {
 
         // let pixels = vec![vec![false; width]; height];
         let curr_res = config.resolutions[0];
-        let max_res = config.resolutions.last().unwrap().clone();
+        let max_res = *config.resolutions.last().unwrap();
 
         Self {
             config,
@@ -108,7 +108,7 @@ impl CPU {
             keys: 0,
             polling_key_press: PollingKeyPress::NotPolling,
             curr_res,
-            max_res
+            max_res,
         }
     }
 
@@ -172,8 +172,8 @@ impl CPU {
             0 => match lower {
                 0xE0 => self.clear_screen(),
                 0xEE => self.return_subr(),
-                0xFE => self.set_hires(true),
-                0xFF => self.set_hires(false),
+                0xFE => self.set_hires(false),
+                0xFF => self.set_hires(true),
                 _ => self.sys(nnn),
             },
             1 => self.jmp(nnn),
@@ -238,6 +238,10 @@ impl CPU {
     fn set_hires(&mut self, is_hires: bool) {
         // TODO: Gate this behind variant?
         // self.is_hires = is_hires;
+        self.curr_res = match is_hires {
+            true => *self.config.resolutions.last().unwrap(),
+            false => *self.config.resolutions.first().unwrap(),
+        };
 
         // TODO: Clear screen for now
         self.clear_screen();
@@ -352,12 +356,18 @@ impl CPU {
     fn draw(&mut self, x: usize, y: usize, n: usize, drawing: &mut bool) {
         *drawing = true;
 
-        let vx = (self.V[x] & 0x3F) as usize;
-        let vy = (self.V[y] & 0x1F) as usize;
+        // Slightly counter-intuitive, but we should mod by curr res
+        // This is because VX and VY are memory indices
+        // They shouldn't be affected by varying size
+        let vx = (self.V[x] as usize) % self.curr_res.0;
+        let vy = (self.V[y] as usize) % self.curr_res.1;
+
+        let x_size = self.max_res.0 / self.curr_res.0;
+        let y_size = self.max_res.1 / self.curr_res.1;
 
         self.V[0xF] = 0;
 
-        // Behavior: the starting position should wrap (x & 0x3F, y & 0x1F)
+        // Behavior: the starting position should wrap (x & currWidth, y & currHeight)
         // But the drawing should NOT wrap
         for index in self.I..self.I + n {
             let mem_value = self.memory[index];
@@ -366,16 +376,26 @@ impl CPU {
             for x_offset in 0..8 {
                 let pixel_value = (1u8 << (7 - x_offset)) & mem_value != 0;
 
-                let y_index = vy + y_offset;
-                let x_index = vx + x_offset;
+                // Multiply by size to get correct offsets into pixel buffer
+                let y_index = (vy + y_offset) * y_size;
+                let x_index = (vx + x_offset) * x_size;
 
-                if let Some(row) = self.pixels.get_mut(y_index) {
-                    if let Some(pixel) = row.get_mut(x_index) {
-                        if *pixel && pixel_value {
-                            self.V[0xF] = 1;
+                // Draw pixels
+                for y_index in y_index..y_index + y_size {
+                    for x_index in x_index..x_index + x_size {
+                        if x_index < self.max_res.0 && y_index < self.max_res.1 {
+                            if let Some(pixel) = self
+                                .pixels
+                                .get_mut(y_index)
+                                .and_then(|row| row.get_mut(x_index))
+                            {
+                                if *pixel && pixel_value {
+                                    self.V[0xF] = 1;
+                                }
+
+                                *pixel ^= pixel_value;
+                            }
                         }
-
-                        *pixel ^= pixel_value;
                     }
                 }
             }

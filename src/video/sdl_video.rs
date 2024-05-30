@@ -46,18 +46,21 @@ impl Video for SDLVideo {
             .take(height)
             .enumerate()
             .flat_map(|(y, row)| {
-                row.into_iter().take(width).enumerate().filter_map(move |(x, pixel)| {
-                    let rect = Rect::new(
-                        x as i32 * scale as i32,
-                        y as i32 * scale as i32,
-                        scale,
-                        scale,
-                    );
-                    match pixel {
-                        true => Some(rect),
-                        false => None,
-                    }
-                })
+                row.into_iter()
+                    .take(width)
+                    .enumerate()
+                    .filter_map(move |(x, pixel)| {
+                        let rect = Rect::new(
+                            x as i32 * scale as i32,
+                            y as i32 * scale as i32,
+                            scale,
+                            scale,
+                        );
+                        match pixel {
+                            true => Some(rect),
+                            false => None,
+                        }
+                    })
             })
             .collect::<Vec<Rect>>();
 
