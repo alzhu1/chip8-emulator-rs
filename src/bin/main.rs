@@ -6,6 +6,8 @@ use chip8_emulator_rs::{
     SCREEN_HEIGHT, SCREEN_WIDTH,
 };
 
+const VIDEO_WIDTH: usize = SCREEN_WIDTH * 16;
+
 use std::time::{Duration, Instant};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -18,7 +20,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut sdl_audio = SDLAudio::new(&sdl_context)?;
     let mut sdl_input = SDLInput::new(&sdl_context)?;
-    let mut sdl_video = SDLVideo::new(&sdl_context, 16, SCREEN_WIDTH, SCREEN_HEIGHT)?;
+
+    let scale = (VIDEO_WIDTH / cpu.max_res.0) as u32;
+    let mut sdl_video = SDLVideo::new(&sdl_context, scale, cpu.max_res.0, cpu.max_res.1)?;
 
     let frame_ms = Duration::from_nanos(16_666_666);
 
