@@ -170,8 +170,11 @@ impl CPU {
 
         match b1 {
             0 => match lower {
+                _ if b3 == 0xC => self.scroll_down(n), // 00CN
                 0xE0 => self.clear_screen(),
                 0xEE => self.return_subr(),
+                0xFB => self.scroll_right(),
+                0xFC => self.scroll_left(),
                 0xFE => self.set_hires(false),
                 0xFF => self.set_hires(true),
                 _ => self.sys(nnn),
@@ -220,6 +223,41 @@ impl CPU {
     fn clear_screen(&mut self) {
         for row in &mut self.pixels {
             row.fill(false);
+        }
+    }
+
+    // Scrolling
+    fn scroll_down(&mut self, n: usize) {
+        for r in (0..self.max_res.1).rev() {
+            match r > n {
+                true => {
+                    let slice = self.pixels[r - n];
+                    self.pixels[r].clone_from_slice(&slice);
+                }
+                false => self.pixels[r].fill(false),
+            }
+        }
+    }
+
+    fn scroll_right(&mut self) {
+        for row in &mut self.pixels {
+            for p in (0..self.max_res.0).rev() {
+                match p < 4 {
+                    true => row[p] = false,
+                    false => row[p] = row[p - 4],
+                }
+            }
+        }
+    }
+
+    fn scroll_left(&mut self) {
+        for row in &mut self.pixels {
+            for p in 0..self.max_res.0 {
+                match p >= self.max_res.0 - 4 {
+                    true => row[p] = false,
+                    false => row[p] = row[p + 4],
+                }
+            }
         }
     }
 

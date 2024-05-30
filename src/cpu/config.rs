@@ -25,6 +25,8 @@ impl From<CPUVariant> for CPUConfig {
         let shift_quirk = matches!(variant, CPUVariant::Chip48 | CPUVariant::SChipv1_1);
         let jump_quirk = matches!(variant, CPUVariant::Chip48 | CPUVariant::SChipv1_1);
 
+        // TODO: Might need a quirk/variant for modern vs legacy SCHIP?
+
         let load_store_quirk_offset = match variant {
             CPUVariant::Chip48 => (false, 0),
             CPUVariant::SChipv1_1 => (true, 0),
