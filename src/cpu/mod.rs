@@ -227,9 +227,11 @@ impl CPU {
     }
 
     // Scrolling
+    // TODO: Need to set a configuration value for modern/legacy
     fn scroll_down(&mut self, n: usize) {
+        let n = n * (self.max_res.1 / self.curr_res.1);
         for r in (0..self.max_res.1).rev() {
-            match r > n {
+            match r >= n {
                 true => {
                     let slice = self.pixels[r - n];
                     self.pixels[r].clone_from_slice(&slice);
@@ -240,22 +242,26 @@ impl CPU {
     }
 
     fn scroll_right(&mut self) {
+        let scroll_amount = 4 * (self.max_res.0 / self.curr_res.0);
+
         for row in &mut self.pixels {
             for p in (0..self.max_res.0).rev() {
-                match p < 4 {
+                match p < scroll_amount {
                     true => row[p] = false,
-                    false => row[p] = row[p - 4],
+                    false => row[p] = row[p - scroll_amount],
                 }
             }
         }
     }
 
     fn scroll_left(&mut self) {
+        let scroll_amount = 4 * (self.max_res.0 / self.curr_res.0);
+
         for row in &mut self.pixels {
             for p in 0..self.max_res.0 {
-                match p >= self.max_res.0 - 4 {
+                match p >= self.max_res.0 - scroll_amount {
                     true => row[p] = false,
-                    false => row[p] = row[p + 4],
+                    false => row[p] = row[p + scroll_amount],
                 }
             }
         }
