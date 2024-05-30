@@ -2,19 +2,14 @@
 
 use std::{fs::File, io::Read};
 
-use crate::{SCREEN_HEIGHT, SCREEN_WIDTH};
-
 mod config;
+
+use crate::{MAX_RESOLUTION_HEIGHT, MAX_RESOLUTION_WIDTH};
 
 use self::config::CPUConfig;
 
 // Export from CPU module
 pub use config::CPUVariant;
-
-// TODO: To support CHIP-8 variants, could introduce an enum to Chip8 struct
-
-// TODO: I think this whole thing is the CPU itself? So loop should be done outside of this?
-// Or the loop should be done in a Chip8 APP? Or this is renamed as CPU?
 
 const FONT_LOCATION: usize = 0x0;
 const FONT_BYTES: [u8; 80] = [
@@ -48,18 +43,21 @@ enum CondCheck {
 
 // Entry point to chip8 emulator
 pub struct CPU {
-    config: CPUConfig,                                 // Config, for quirks/variant
-    pub pixels: [[bool; SCREEN_WIDTH]; SCREEN_HEIGHT], // Pixel memory
-    memory: [u8; 4096],                                // RAM
-    V: [u8; 0x10],                                     // V registers
-    I: usize,                                          // 12-bit index reg
-    pc: usize,                                         // Program counter
-    delay_timer: u8,                                   // Delay timer
-    sound_timer: u8,                                   // Sound timer
-    stack: [usize; 16],                                // Stack for return addr
-    sp: usize,                                         // Stack pointer
-    keys: u16,                                         // Keys pressed
-    polling_key_press: PollingKeyPress,                // Check polling
+    config: CPUConfig,                  // Config, for quirks/variant
+    pub pixels: [[bool; MAX_RESOLUTION_WIDTH]; MAX_RESOLUTION_HEIGHT],         // Pixel memory
+    memory: [u8; 4096],                 // RAM
+    V: [u8; 0x10],                      // V registers
+    I: usize,                           // 12-bit index reg
+    pc: usize,                          // Program counter
+    delay_timer: u8,                    // Delay timer
+    sound_timer: u8,                    // Sound timer
+    stack: [usize; 16],                 // Stack for return addr
+    sp: usize,                          // Stack pointer
+    keys: u16,                          // Keys pressed
+    polling_key_press: PollingKeyPress, // Check polling
+
+    curr_res: (usize, usize),
+    pub max_res: (usize, usize)
 }
 
 impl CPU {
@@ -69,11 +67,35 @@ impl CPU {
             memory[FONT_LOCATION + i] = font_byte;
         }
 
-        let pixels = [[false; SCREEN_WIDTH]; SCREEN_HEIGHT];
+        let config = CPUConfig::from(variant);
+
+        // TODO: Notes on resolution
+        // Idea here is that we should default to hires if it exists
+
+        // If we're in a hires mode, modify pixels as normal
+        // If we're in a lores mode, pixel location * 2 = top left corner? Paint 2x2
+
+        // I think it makes sense to take inspiration from Cadmium
+        // Basically, the buffer should just be the max size possible (i.e. Megachip)
+        // Not sure how this part is in Cadmium, but basically:
+
+        // We limit ourselves to the top left corner of the buffer
+        // If no hires supported, use the base resolution
+        // If hires supported, use the higher resolution, and lores draws 2x2
+        // Any excess parts of the screen should get chopped off
+        // let (width, height) = if let Some(hires_resolution) = config.hires_resolution {
+        //     hires_resolution
+        // } else {
+        //     config.base_resolution
+        // };
+
+        // let pixels = vec![vec![false; width]; height];
+        let curr_res = config.resolutions[0];
+        let max_res = config.resolutions.last().unwrap().clone();
 
         Self {
-            config: CPUConfig::from(variant),
-            pixels,
+            config,
+            pixels: [[false; MAX_RESOLUTION_WIDTH]; MAX_RESOLUTION_HEIGHT],
             memory,
             V: [0; 0x10],
             I: 0,
@@ -85,6 +107,8 @@ impl CPU {
             sp: 0,
             keys: 0,
             polling_key_press: PollingKeyPress::NotPolling,
+            curr_res,
+            max_res
         }
     }
 
@@ -148,6 +172,8 @@ impl CPU {
             0 => match lower {
                 0xE0 => self.clear_screen(),
                 0xEE => self.return_subr(),
+                0xFE => self.set_hires(true),
+                0xFF => self.set_hires(false),
                 _ => self.sys(nnn),
             },
             1 => self.jmp(nnn),
@@ -192,7 +218,9 @@ impl CPU {
     }
 
     fn clear_screen(&mut self) {
-        self.pixels.fill([false; SCREEN_WIDTH]);
+        for row in &mut self.pixels {
+            row.fill(false);
+        }
     }
 
     fn call(&mut self, nnn: usize) {
@@ -204,6 +232,15 @@ impl CPU {
         // Decrement SP first to get back the original return PC
         self.sp -= 1;
         self.pc = self.stack[self.sp];
+    }
+
+    // Hires
+    fn set_hires(&mut self, is_hires: bool) {
+        // TODO: Gate this behind variant?
+        // self.is_hires = is_hires;
+
+        // TODO: Clear screen for now
+        self.clear_screen();
     }
 
     fn jmp(&mut self, nnn: usize) {

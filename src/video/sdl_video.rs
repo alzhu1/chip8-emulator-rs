@@ -31,7 +31,7 @@ impl SDLVideo {
 }
 
 impl Video for SDLVideo {
-    fn draw_to_window<'a, I, J>(&mut self, pixels: I)
+    fn draw_to_window<'a, I, J>(&mut self, pixels: I, width: usize, height: usize)
     where
         I: IntoIterator<Item = J>,
         J: IntoIterator<Item = &'a bool>,
@@ -43,9 +43,10 @@ impl Video for SDLVideo {
 
         let rects = pixels
             .into_iter()
+            .take(height)
             .enumerate()
             .flat_map(|(y, row)| {
-                row.into_iter().enumerate().filter_map(move |(x, pixel)| {
+                row.into_iter().take(width).enumerate().filter_map(move |(x, pixel)| {
                     let rect = Rect::new(
                         x as i32 * scale as i32,
                         y as i32 * scale as i32,
