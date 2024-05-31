@@ -49,7 +49,7 @@ const BIG_FONT_BYTES: [u8; 160] = [
     0x3C, 0xFF, 0xC3, 0xC0, 0xC0, 0xC0, 0xC0, 0xC3, 0xFF, 0x3C, // C
     0xFC, 0xFE, 0xC3, 0xC3, 0xC3, 0xC3, 0xC3, 0xC3, 0xFE, 0xFC, // D
     0xFF, 0xFF, 0xC0, 0xC0, 0xFF, 0xFF, 0xC0, 0xC0, 0xFF, 0xFF, // E
-    0xFF, 0xFF, 0xC0, 0xC0, 0xFF, 0xFF, 0xC0, 0xC0, 0xC0, 0xC0  // F
+    0xFF, 0xFF, 0xC0, 0xC0, 0xFF, 0xFF, 0xC0, 0xC0, 0xC0, 0xC0, // F
 ];
 
 enum PollingKeyPress {
@@ -205,13 +205,14 @@ impl CPU {
 
         match b1 {
             0 => match lower {
-                _ if b3 == 0xC => self.scroll_down(n), // 00CN
+                _ if b3 == 0xC && self.config.scrolling_enabled => self.scroll_down(n), // 00CN
                 0xE0 => self.clear_screen(),
                 0xEE => self.return_subr(),
-                0xFB => self.scroll_right(),
-                0xFC => self.scroll_left(),
-                0xFE => self.set_hires(false),
-                0xFF => self.set_hires(true),
+                0xFB if self.config.scrolling_enabled => self.scroll_right(),
+                0xFC if self.config.scrolling_enabled => self.scroll_left(),
+                // TODO: 0xFD halt for hires_enabled
+                0xFE if self.config.hires_enabled => self.set_hires(false),
+                0xFF if self.config.hires_enabled => self.set_hires(true),
                 _ => self.sys(nnn),
             },
             1 => self.jmp(nnn),
@@ -272,7 +273,7 @@ impl CPU {
     fn scroll_down(&mut self, n: usize) {
         let n = n * match self.config.scroll_quirk {
             true => (self.max_res.1 / self.curr_res.1),
-            false => 1
+            false => 1,
         };
 
         for r in (0..self.max_res.1).rev() {
@@ -289,7 +290,7 @@ impl CPU {
     fn scroll_right(&mut self) {
         let scroll_amount = 4 * match self.config.scroll_quirk {
             true => (self.max_res.1 / self.curr_res.1),
-            false => 1
+            false => 1,
         };
 
         for row in &mut self.pixels {
@@ -305,7 +306,7 @@ impl CPU {
     fn scroll_left(&mut self) {
         let scroll_amount = 4 * match self.config.scroll_quirk {
             true => (self.max_res.1 / self.curr_res.1),
-            false => 1
+            false => 1,
         };
 
         for row in &mut self.pixels {
