@@ -9,7 +9,7 @@ pub(super) struct CPUConfig {
     pub logic_quirk: bool,
     pub shift_quirk: bool,
     pub jump_quirk: bool,
-    pub load_store_quirk_offset: (bool, usize),
+    pub load_store_offset: Option<usize>,
     pub vblank_quirk: bool,
     pub scroll_quirk: bool,
 
@@ -43,11 +43,11 @@ impl From<CPUVariant> for CPUConfig {
 
         // TODO: Might need a quirk/variant for modern vs legacy SCHIP?
 
-        let load_store_quirk_offset = match variant {
-            CPUVariant::Chip48 => (false, 0),
-            CPUVariant::SChipv1_0 => (false, 0),
-            CPUVariant::SChipv1_1 => (true, 0),
-            _ => (false, 1),
+        let load_store_offset = match variant {
+            CPUVariant::Chip48 => Some(0),
+            CPUVariant::SChipv1_0 => Some(0),
+            CPUVariant::SChipv1_1 => None,
+            _ => Some(1),
         };
 
         let vblank_quirk = true;
@@ -76,7 +76,7 @@ impl From<CPUVariant> for CPUConfig {
             logic_quirk,
             shift_quirk,
             jump_quirk,
-            load_store_quirk_offset,
+            load_store_offset,
             vblank_quirk,
             scroll_quirk,
             resolutions,

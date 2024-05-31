@@ -532,25 +532,21 @@ impl CPU {
     }
 
     fn reg_dump(&mut self, x: usize) {
-        let (quirk, offset) = self.config.load_store_quirk_offset;
-
         for x_index in 0..=x {
             self.memory[self.I + x_index] = self.V[x_index];
         }
 
-        if !quirk {
+        if let Some(offset) = self.config.load_store_offset {
             self.I += x;
             self.I += offset;
         }
     }
     fn reg_load(&mut self, x: usize) {
-        let (quirk, offset) = self.config.load_store_quirk_offset;
-
         for x_index in 0..=x {
             self.V[x_index] = self.memory[self.I + x_index];
         }
 
-        if !quirk {
+        if let Some(offset) = self.config.load_store_offset {
             self.I += x;
             self.I += offset;
         }
