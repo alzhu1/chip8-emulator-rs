@@ -26,8 +26,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let frame_ms = Duration::from_nanos(16_666_666);
 
-    let mut drawing = false;
-
     let args = std::env::args();
     let rom = match args.len() {
         2 => args.last().unwrap(),
@@ -54,9 +52,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Process CPU instructions
         for _ in 0..20 {
-            cpu.process(&mut drawing);
+            cpu.process();
 
-            if drawing {
+            if cpu.should_vblank() {
                 break;
             }
         }
@@ -69,10 +67,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             sdl_audio.pause_audio();
         }
 
-        if drawing {
-            drawing = false;
-            sdl_video.draw_to_window(&cpu.pixels, cpu.max_res.0, cpu.max_res.1);
-        }
+        cpu.reset_vblank();
+        sdl_video.draw_to_window(&cpu.pixels, cpu.max_res.0, cpu.max_res.1);
 
         // println!("Process + draw time: {}ms", a.elapsed().as_millis());
 

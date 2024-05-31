@@ -55,6 +55,7 @@ pub struct CPU {
     sp: usize,         // Stack pointer
     keys: u16,         // Keys pressed
     polling_key_press: PollingKeyPress, // Check polling
+    vblank: bool,      // Vertical blanking
 
     curr_res: (usize, usize),
     pub max_res: (usize, usize),
@@ -109,6 +110,7 @@ impl CPU {
             polling_key_press: PollingKeyPress::NotPolling,
             curr_res,
             max_res,
+            vblank: false,
         }
     }
 
@@ -146,7 +148,15 @@ impl CPU {
         }
     }
 
-    pub fn process(&mut self, drawing: &mut bool) {
+    pub fn should_vblank(&self) -> bool {
+        self.vblank
+    }
+
+    pub fn reset_vblank(&mut self) {
+        self.vblank = false;
+    }
+
+    pub fn process(&mut self) {
         if let PollingKeyPress::Polling(_) = self.polling_key_press {
             return;
         }
@@ -194,7 +204,7 @@ impl CPU {
             0xA => self.set_i(nnn),
             0xB => self.jmp_relative(nnn),
             0xC => self.set_random(x, nn),
-            0xD => self.draw(x, y, n, drawing),
+            0xD => self.draw(x, y, n),
             0xE => match lower {
                 0x9E => self.key_check(x, true),
                 0xA1 => self.key_check(x, false),
@@ -397,8 +407,10 @@ impl CPU {
         self.memory[self.I + 2] = vx % 100 % 10;
     }
 
-    fn draw(&mut self, x: usize, y: usize, n: usize, drawing: &mut bool) {
-        *drawing = true;
+    fn draw(&mut self, x: usize, y: usize, n: usize) {
+        if self.config.vblank_quirk {
+            self.vblank = true;
+        }
 
         // Slightly counter-intuitive, but we should mod by curr res
         // This is because VX and VY are memory indices

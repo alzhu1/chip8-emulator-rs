@@ -4,6 +4,7 @@ pub(super) struct CPUConfig {
     pub shift_quirk: bool,
     pub jump_quirk: bool,
     pub load_store_quirk_offset: (bool, usize),
+    pub vblank_quirk: bool,
 
     // Resolutions
     // https://emulation.gametechwiki.com/index.php/Resolution#cite_note-CHIP-8_RES-1
@@ -16,6 +17,7 @@ pub enum CPUVariant {
     Chip8,
     Chip48,
     SChipv1_1,
+    // TODO: Add SCHIPv1_1_Modern
     XOChip,
 }
 
@@ -33,6 +35,8 @@ impl From<CPUVariant> for CPUConfig {
             _ => (false, 1),
         };
 
+        let vblank_quirk = true;
+
         // Base resolution
         let mut resolutions = vec![(64, 32)];
 
@@ -49,6 +53,7 @@ impl From<CPUVariant> for CPUConfig {
             shift_quirk,
             jump_quirk,
             load_store_quirk_offset,
+            vblank_quirk,
             resolutions,
         }
     }
