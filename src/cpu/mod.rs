@@ -239,7 +239,11 @@ impl CPU {
     // Scrolling
     // TODO: Need to set a configuration value for modern/legacy
     fn scroll_down(&mut self, n: usize) {
-        let n = n * (self.max_res.1 / self.curr_res.1);
+        let n = n * match self.config.scroll_quirk {
+            true => (self.max_res.1 / self.curr_res.1),
+            false => 1
+        };
+
         for r in (0..self.max_res.1).rev() {
             match r >= n {
                 true => {
@@ -252,7 +256,10 @@ impl CPU {
     }
 
     fn scroll_right(&mut self) {
-        let scroll_amount = 4 * (self.max_res.0 / self.curr_res.0);
+        let scroll_amount = 4 * match self.config.scroll_quirk {
+            true => (self.max_res.1 / self.curr_res.1),
+            false => 1
+        };
 
         for row in &mut self.pixels {
             for p in (0..self.max_res.0).rev() {
@@ -265,7 +272,10 @@ impl CPU {
     }
 
     fn scroll_left(&mut self) {
-        let scroll_amount = 4 * (self.max_res.0 / self.curr_res.0);
+        let scroll_amount = 4 * match self.config.scroll_quirk {
+            true => (self.max_res.1 / self.curr_res.1),
+            false => 1
+        };
 
         for row in &mut self.pixels {
             for p in 0..self.max_res.0 {

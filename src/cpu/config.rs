@@ -5,6 +5,7 @@ pub(super) struct CPUConfig {
     pub jump_quirk: bool,
     pub load_store_quirk_offset: (bool, usize),
     pub vblank_quirk: bool,
+    pub scroll_quirk: bool,
 
     // Resolutions
     // https://emulation.gametechwiki.com/index.php/Resolution#cite_note-CHIP-8_RES-1
@@ -36,6 +37,7 @@ impl From<CPUVariant> for CPUConfig {
         };
 
         let vblank_quirk = true;
+        let scroll_quirk = false;
 
         // Base resolution
         let mut resolutions = vec![(64, 32)];
@@ -54,6 +56,7 @@ impl From<CPUVariant> for CPUConfig {
             jump_quirk,
             load_store_quirk_offset,
             vblank_quirk,
+            scroll_quirk,
             resolutions,
         }
     }
