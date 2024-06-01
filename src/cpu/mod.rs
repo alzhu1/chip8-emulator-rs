@@ -95,27 +95,9 @@ impl CPU {
 
         let config = CPUConfig::from(variant);
 
-        // TODO: Notes on resolution
-        // Idea here is that we should default to hires if it exists
+        // Pull starting PC from config
+        let pc = config.pc_start;
 
-        // If we're in a hires mode, modify pixels as normal
-        // If we're in a lores mode, pixel location * 2 = top left corner? Paint 2x2
-
-        // I think it makes sense to take inspiration from Cadmium
-        // Basically, the buffer should just be the max size possible (i.e. Megachip)
-        // Not sure how this part is in Cadmium, but basically:
-
-        // We limit ourselves to the top left corner of the buffer
-        // If no hires supported, use the base resolution
-        // If hires supported, use the higher resolution, and lores draws 2x2
-        // Any excess parts of the screen should get chopped off
-        // let (width, height) = if let Some(hires_resolution) = config.hires_resolution {
-        //     hires_resolution
-        // } else {
-        //     config.base_resolution
-        // };
-
-        // let pixels = vec![vec![false; width]; height];
         let curr_res = config.resolutions[0];
         let max_res = *config.resolutions.last().unwrap();
 
@@ -125,8 +107,7 @@ impl CPU {
             memory,
             V: [0; 0x10],
             I: 0,
-            // TODO: Some programs can start elsewhere
-            pc: 0x200,
+            pc,
             delay_timer: 0,
             sound_timer: 0,
             stack: [0; 16],
@@ -142,8 +123,13 @@ impl CPU {
     pub fn load_rom(&mut self, rom: String) {
         let mut file = File::open(rom).unwrap();
 
-        // TODO: Clippy complains about partial read
-        file.read(&mut self.memory[0x200..]).unwrap();
+        let res = file.read(&mut self.memory[self.config.pc_start..]);
+
+        // Do this to pacify clippy
+        match res {
+            Ok(_) => (),
+            Err(_) => ()
+        }
     }
 
     pub fn decrement_timers(&mut self) {
@@ -259,7 +245,7 @@ impl CPU {
     }
 
     fn sys(&mut self, _nnn: usize) {
-        // TODO: NOOP?
+        // This is a noop
     }
 
     fn clear_screen(&mut self) {
@@ -269,10 +255,9 @@ impl CPU {
     }
 
     // Scrolling
-    // TODO: Need to set a configuration value for modern/legacy
     fn scroll_down(&mut self, n: usize) {
         let n = n * match self.config.scroll_quirk {
-            true => (self.max_res.1 / self.curr_res.1),
+            true => self.max_res.1 / self.curr_res.1,
             false => 1,
         };
 
@@ -289,7 +274,7 @@ impl CPU {
 
     fn scroll_right(&mut self) {
         let scroll_amount = 4 * match self.config.scroll_quirk {
-            true => (self.max_res.1 / self.curr_res.1),
+            true => self.max_res.1 / self.curr_res.1,
             false => 1,
         };
 
@@ -305,7 +290,7 @@ impl CPU {
 
     fn scroll_left(&mut self) {
         let scroll_amount = 4 * match self.config.scroll_quirk {
-            true => (self.max_res.1 / self.curr_res.1),
+            true => self.max_res.1 / self.curr_res.1,
             false => 1,
         };
 
@@ -332,8 +317,6 @@ impl CPU {
 
     // Hires
     fn set_hires(&mut self, is_hires: bool) {
-        // TODO: Gate this behind variant?
-        // self.is_hires = is_hires;
         self.curr_res = match is_hires {
             true => *self.config.resolutions.last().unwrap(),
             false => *self.config.resolutions.first().unwrap(),
@@ -434,18 +417,17 @@ impl CPU {
         self.I = nnn;
     }
     fn add_i(&mut self, x: usize) {
-        self.I += self.V[x] as usize; // TODO: ? & 0xFFF;
+        self.I += self.V[x] as usize & 0xFFF;
     }
     fn set_i_sprite(&mut self, x: usize) {
         // VX should be a single hex value (0-F)
         // Assuming fonts begin at 0x0, each font takes 5 bytes
-        self.I = FONT_LOCATION + (self.V[x] as usize * 5);
+        self.I = FONT_LOCATION + (self.V[x] as usize & 0xF * 5);
     }
     fn set_i_big_sprite(&mut self, x: usize) {
-        // TODO: Need to gate this behind SChip variant
         // VX should be a single hex value (0-F)
-        // Assuming big fonts begin at 0x0, each font takes 5 bytes
-        self.I = BIG_FONT_LOCATION + (self.V[x] as usize * 10);
+        // Assuming big fonts begin after small fonts, each font takes 10 bytes
+        self.I = BIG_FONT_LOCATION + (self.V[x] as usize & 0xF * 10);
     }
     fn set_bcd(&mut self, x: usize) {
         let vx = self.V[x];
@@ -456,10 +438,6 @@ impl CPU {
     }
 
     fn draw(&mut self, x: usize, y: usize, n: usize) {
-        // TODO: Handle DXY0 for SCHIP/Hires
-        // In lores SCHIP 1.x, draw a 8x16 sprite
-        // Else, draw a 16x16 sprite
-
         if self.config.vblank_quirk {
             self.vblank = true;
         }

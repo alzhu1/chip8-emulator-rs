@@ -13,10 +13,11 @@ pub(super) struct CPUConfig {
     pub vblank_quirk: bool,
     pub scroll_quirk: bool,
 
+    // Misc
+    pub pc_start: usize,
+
     // Resolutions
     // https://emulation.gametechwiki.com/index.php/Resolution#cite_note-CHIP-8_RES-1
-    // pub base_resolution: (usize, usize),
-    // pub hires_resolution: Option<(usize, usize)>,
     pub resolutions: Vec<(usize, usize)>, // TODO: Megachip?
 }
 
@@ -59,6 +60,8 @@ impl From<CPUVariant> for CPUConfig {
         );
         let scrolling_enabled = matches!(variant, CPUVariant::SChipv1_1 | CPUVariant::XOChip);
 
+        let pc_start = 0x200;
+
         // Base resolution
         let mut resolutions = vec![(64, 32)];
 
@@ -79,6 +82,7 @@ impl From<CPUVariant> for CPUConfig {
             load_store_offset,
             vblank_quirk,
             scroll_quirk,
+            pc_start,
             resolutions,
         }
     }

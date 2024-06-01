@@ -3,7 +3,7 @@ use chip8_emulator_rs::{
     cpu::CPU,
     input::{sdl_input::SDLInput, Input, InputEvent, InputKey},
     video::{sdl_video::SDLVideo, Video},
-    SCREEN_HEIGHT, SCREEN_WIDTH,
+    SCREEN_WIDTH
 };
 
 const VIDEO_WIDTH: usize = SCREEN_WIDTH * 16;
@@ -13,14 +13,14 @@ use std::time::{Duration, Instant};
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sdl_context = sdl2::init()?;
 
-    // TODO: Derive height/width from CPU, not an import
-    // If we default to using 256x192 as a base resolution, figure out how to
-    // limit the size of video display depending on CPU variant
+    // Init CPU
     let mut cpu = CPU::new(chip8_emulator_rs::cpu::CPUVariant::SChipv1_1);
 
+    // Init audio/input drivers
     let mut sdl_audio = SDLAudio::new(&sdl_context)?;
     let mut sdl_input = SDLInput::new(&sdl_context)?;
 
+    // Init video driver, use CPU resolution as basis
     let scale = (VIDEO_WIDTH / cpu.max_res.0) as u32;
     let mut sdl_video = SDLVideo::new(&sdl_context, scale, cpu.max_res.0, cpu.max_res.1)?;
 
