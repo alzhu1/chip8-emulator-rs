@@ -475,14 +475,29 @@ impl CPU {
 
         self.V[0xF] = 0;
 
+        // TODO: This should probably be made into some kind of config
+        // In legacy version, we should draw 8x16 for lores SCHIP
+        // For now, let's always assume 16x16
+        // TODO: Also, hires_enabled is the wrong condition (Megachip does not support dxy0)
+        // Should create config for that too
+        let (mem_read, step, width) = if n == 0 && self.config.hires_enabled {
+            (32, 2, 16)
+        } else {
+            (n, 1, 8)
+        };
+
         // Behavior: the starting position should wrap (x & currWidth, y & currHeight)
         // But the drawing should NOT wrap
-        for index in self.I..self.I + n {
-            let mem_value = self.memory[index];
+        for index in (self.I..self.I + mem_read).step_by(step) {
+            let mut mem_value = self.memory[index] as usize;
+            if step == 2 {
+                mem_value <<= 8;
+                mem_value |= self.memory[index + 1] as usize;
+            }
 
-            let y_offset = index - self.I;
-            for x_offset in 0..8 {
-                let pixel_value = (1u8 << (7 - x_offset)) & mem_value != 0;
+            let y_offset = (index - self.I) / step;
+            for x_offset in 0..width {
+                let pixel_value = (1usize << ((width - 1) - x_offset)) & mem_value != 0;
 
                 // Multiply by size to get correct offsets into pixel buffer
                 let y_index = (vy + y_offset) * y_size;
