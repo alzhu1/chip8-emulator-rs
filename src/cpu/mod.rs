@@ -453,20 +453,21 @@ impl CPU {
 
         self.V[0xF] = 0;
 
-        // TODO: This should probably be made into some kind of config
-        // In legacy version, we should draw 8x16 for lores SCHIP
-        // For now, let's always assume 16x16
-        // TODO: Also, hires_enabled is the wrong condition (Megachip does not support dxy0)
-        // Should create config for that too
-        let (mem_read, step, width) = if n == 0 && self.config.hires_enabled {
-            (32, 2, 16)
+        // Handle DXY0 - change impl depending on DXY0 set width from config
+        let (lines, step, width) = if n == 0 {
+            // Width should be either 8 or 16
+            // If 16, we need to read 2x memory and step 2 at a time
+            match self.config.dxy0_lores_width {
+                Some(width) => (width * 2, width / 8, width),
+                None => (n, 1, 8)
+            }
         } else {
             (n, 1, 8)
         };
 
         // Behavior: the starting position should wrap (x & currWidth, y & currHeight)
         // But the drawing should NOT wrap
-        for index in (self.I..self.I + mem_read).step_by(step) {
+        for index in (self.I..self.I + lines).step_by(step) {
             let mut mem_value = self.memory[index] as usize;
             if step == 2 {
                 mem_value <<= 8;

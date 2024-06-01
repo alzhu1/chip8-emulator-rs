@@ -12,6 +12,7 @@ pub(super) struct CPUConfig {
     pub load_store_offset: Option<usize>,
     pub vblank_quirk: bool,
     pub scroll_quirk: bool,
+    pub dxy0_lores_width: Option<usize>,
 
     // Misc
     pub pc_start: usize,
@@ -32,6 +33,15 @@ pub enum CPUVariant {
 
 impl From<CPUVariant> for CPUConfig {
     fn from(variant: CPUVariant) -> Self {
+        // Enabled features
+        // TODO: Might need a quirk/variant for modern vs legacy SCHIP?
+        let hires_enabled = matches!(
+            variant,
+            CPUVariant::SChipv1_0 | CPUVariant::SChipv1_1 | CPUVariant::XOChip
+        );
+        let scrolling_enabled = matches!(variant, CPUVariant::SChipv1_1 | CPUVariant::XOChip);
+
+        // Quirks
         let logic_quirk = matches!(variant, CPUVariant::Chip8);
         let shift_quirk = matches!(
             variant,
@@ -41,8 +51,6 @@ impl From<CPUVariant> for CPUConfig {
             variant,
             CPUVariant::Chip48 | CPUVariant::SChipv1_0 | CPUVariant::SChipv1_1
         );
-
-        // TODO: Might need a quirk/variant for modern vs legacy SCHIP?
 
         let load_store_offset = match variant {
             CPUVariant::Chip48 => Some(0),
@@ -54,12 +62,14 @@ impl From<CPUVariant> for CPUConfig {
         let vblank_quirk = true;
         let scroll_quirk = false;
 
-        let hires_enabled = matches!(
-            variant,
-            CPUVariant::SChipv1_0 | CPUVariant::SChipv1_1 | CPUVariant::XOChip
-        );
-        let scrolling_enabled = matches!(variant, CPUVariant::SChipv1_1 | CPUVariant::XOChip);
+        let dxy0_lores_width = match variant {
+            CPUVariant::SChipv1_0 => Some(8),
+            CPUVariant::SChipv1_1 => Some(8),
+            CPUVariant::XOChip => Some(16),
+            _ => None
+        };
 
+        // Misc
         let pc_start = 0x200;
 
         // Base resolution
@@ -82,6 +92,7 @@ impl From<CPUVariant> for CPUConfig {
             load_store_offset,
             vblank_quirk,
             scroll_quirk,
+            dxy0_lores_width,
             pc_start,
             resolutions,
         }
