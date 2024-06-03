@@ -34,7 +34,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     cpu.load_rom(rom);
 
-    loop {
+    while cpu.running {
         let frame_start_time = Instant::now();
         if let Some(input) = sdl_input.poll_input() {
             match input {

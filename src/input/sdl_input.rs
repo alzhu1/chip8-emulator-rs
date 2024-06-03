@@ -17,7 +17,7 @@ impl SDLInput {
 impl Input for SDLInput {
     fn poll_input(&mut self) -> Option<InputEvent> {
         for event in self.event_pump.poll_iter() {
-            println!("Event: {:?}", event);
+            // println!("Event: {:?}", event);
 
             let input = match event {
                 Event::Quit { .. } => Some(InputEvent::KeyPressed(InputKey::Quit)),

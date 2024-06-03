@@ -4,6 +4,7 @@ pub(super) struct CPUConfig {
     // Enabled features
     pub hires_enabled: bool,
     pub scrolling_enabled: bool,
+    pub flag_registers_enabled: bool,
 
     // Quirks
     pub logic_quirk: bool,
@@ -40,6 +41,7 @@ impl From<CPUVariant> for CPUConfig {
             CPUVariant::SChipv1_0 | CPUVariant::SChipv1_1 | CPUVariant::XOChip
         );
         let scrolling_enabled = matches!(variant, CPUVariant::SChipv1_1 | CPUVariant::XOChip);
+        let flag_registers_enabled = hires_enabled;
 
         // Quirks
         let logic_quirk = matches!(variant, CPUVariant::Chip8);
@@ -86,6 +88,7 @@ impl From<CPUVariant> for CPUConfig {
             variant,
             hires_enabled,
             scrolling_enabled,
+            flag_registers_enabled,
             logic_quirk,
             shift_quirk,
             jump_quirk,

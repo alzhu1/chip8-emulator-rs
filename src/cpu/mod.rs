@@ -64,6 +64,7 @@ enum CondCheck {
 
 // Entry point to chip8 emulator
 pub struct CPU {
+    pub running: bool,
     config: CPUConfig, // Config, for quirks/variant
     pub pixels: [[bool; MAX_RESOLUTION_WIDTH]; MAX_RESOLUTION_HEIGHT], // Pixel memory
     memory: [u8; 4096], // RAM
@@ -80,6 +81,8 @@ pub struct CPU {
 
     curr_res: (usize, usize),
     pub max_res: (usize, usize),
+
+    flag_registers: [u8; 0x10]
 }
 
 impl CPU {
@@ -102,6 +105,7 @@ impl CPU {
         let max_res = *config.resolutions.last().unwrap();
 
         Self {
+            running: true,
             config,
             pixels: [[false; MAX_RESOLUTION_WIDTH]; MAX_RESOLUTION_HEIGHT],
             memory,
@@ -117,6 +121,7 @@ impl CPU {
             curr_res,
             max_res,
             vblank: false,
+            flag_registers: [0; 0x10]
         }
     }
 
@@ -168,6 +173,10 @@ impl CPU {
     }
 
     pub fn process(&mut self) {
+        if !self.running {
+            return;
+        }
+
         if let PollingKeyPress::Polling(_) = self.polling_key_press {
             return;
         }
@@ -196,7 +205,7 @@ impl CPU {
                 0xEE => self.return_subr(),
                 0xFB if self.config.scrolling_enabled => self.scroll_right(),
                 0xFC if self.config.scrolling_enabled => self.scroll_left(),
-                // TODO: 0xFD halt for hires_enabled
+                0xFD if self.config.hires_enabled => self.halt(),
                 0xFE if self.config.hires_enabled => self.set_hires(false),
                 0xFF if self.config.hires_enabled => self.set_hires(true),
                 _ => self.sys(nnn),
@@ -233,11 +242,8 @@ impl CPU {
                 0x33 => self.set_bcd(x),
                 0x55 => self.reg_dump(x),
                 0x65 => self.reg_load(x),
-
-                // TODO: These set registers in some arbitrary location
-                // Will add registers once things are refactored into cores
-                0x75 => (),
-                0x85 => (),
+                0x75 if self.config.flag_registers_enabled => self.flag_dump(x),
+                0x85 if self.config.flag_registers_enabled => self.flag_load(x),
                 _ => unreachable!(),
             },
             _ => unreachable!(),
@@ -246,6 +252,10 @@ impl CPU {
 
     fn sys(&mut self, _nnn: usize) {
         // This is a noop
+    }
+
+    fn halt(&mut self) {
+        self.running = false;
     }
 
     fn clear_screen(&mut self) {
@@ -544,6 +554,17 @@ impl CPU {
         if let Some(offset) = self.config.load_store_offset {
             self.I += x;
             self.I += offset;
+        }
+    }
+
+    fn flag_dump(&mut self, x: usize) {
+        for x_index in 0..=x {
+            self.flag_registers[x_index] = self.V[x_index];
+        }
+    }
+    fn flag_load(&mut self, x: usize) {
+        for x_index in 0..=x {
+            self.V[x_index] = self.flag_registers[x_index];
         }
     }
 }
