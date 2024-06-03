@@ -26,7 +26,8 @@ pub enum CPUVariant {
     Chip48,
     SChipv1_0,
     SChipv1_1,
-    // TODO: Add SCHIPv1_1_Modern
+    SChipModern,
+    SChipC,
     XOChip,
 }
 
@@ -37,6 +38,8 @@ impl CPUVariant {
             CPUVariant::Chip48 => CPUVariant::into_chip48_config(),
             CPUVariant::SChipv1_0 => CPUVariant::into_schipv_1_0_config(),
             CPUVariant::SChipv1_1 => CPUVariant::into_schipv_1_1_config(),
+            CPUVariant::SChipC => CPUVariant::into_schipc_config(),
+            CPUVariant::SChipModern => CPUVariant::into_schip_modern_config(),
             CPUVariant::XOChip => CPUVariant::into_xo_chip_config()
         }
     }
@@ -79,6 +82,37 @@ impl CPUVariant {
             jump_quirk: true,
             load_store_offset: None,
             dxy0_lores_width: Some(8),
+            resolutions: vec![(64, 32), (128, 64)],
+            ..Default::default()
+        }
+    }
+
+    // Configurations were sourced from Cadmium
+    fn into_schipc_config() -> CPUConfig {
+        CPUConfig {
+            hires_enabled: true,
+            scrolling_enabled: true,
+            flag_registers_enabled: true,
+            logic_quirk: false,
+            vblank_quirk: false,
+            dxy0_lores_width: Some(16),
+            resolutions: vec![(64, 32), (128, 64)],
+            ..Default::default()
+        }
+    }
+
+    // Configurations were sourced from Cadmium
+    fn into_schip_modern_config() -> CPUConfig {
+        CPUConfig {
+            hires_enabled: true,
+            scrolling_enabled: true,
+            flag_registers_enabled: true,
+            logic_quirk: false,
+            shift_quirk: true,
+            jump_quirk: true,
+            vblank_quirk: false,
+            load_store_offset: None,
+            dxy0_lores_width: Some(16),
             resolutions: vec![(64, 32), (128, 64)],
             ..Default::default()
         }
