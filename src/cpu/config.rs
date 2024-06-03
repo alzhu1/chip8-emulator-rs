@@ -32,7 +32,7 @@ pub enum CPUVariant {
 }
 
 impl CPUVariant {
-    fn into_config(&self) -> CPUConfig {
+    fn into_config(self) -> CPUConfig {
         match self {
             CPUVariant::Chip8 => CPUVariant::into_chip8_config(),
             CPUVariant::Chip48 => CPUVariant::into_chip48_config(),
@@ -40,7 +40,7 @@ impl CPUVariant {
             CPUVariant::SChipv1_1 => CPUVariant::into_schipv_1_1_config(),
             CPUVariant::SChipC => CPUVariant::into_schipc_config(),
             CPUVariant::SChipModern => CPUVariant::into_schip_modern_config(),
-            CPUVariant::XOChip => CPUVariant::into_xo_chip_config()
+            CPUVariant::XOChip => CPUVariant::into_xo_chip_config(),
         }
     }
 
@@ -133,7 +133,7 @@ impl CPUVariant {
 
 // Define config default as CHIP-8 params
 impl Default for CPUConfig {
-    fn default() -> Self {        
+    fn default() -> Self {
         Self {
             hires_enabled: false,
             scrolling_enabled: false,
@@ -146,7 +146,7 @@ impl Default for CPUConfig {
             load_store_offset: Some(1),
             dxy0_lores_width: None,
             pc_start: 0x200,
-            resolutions: vec![(64, 32)]
+            resolutions: vec![(64, 32)],
         }
     }
 }

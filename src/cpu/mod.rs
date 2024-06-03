@@ -131,10 +131,7 @@ impl CPU {
         let res = file.read(&mut self.memory[self.config.pc_start..]);
 
         // Do this to pacify clippy
-        match res {
-            Ok(_) => (),
-            Err(_) => (),
-        }
+        if res.is_ok() {}
     }
 
     pub fn decrement_timers(&mut self) {
@@ -432,12 +429,12 @@ impl CPU {
     fn set_i_sprite(&mut self, x: usize) {
         // VX should be a single hex value (0-F)
         // Assuming fonts begin at 0x0, each font takes 5 bytes
-        self.I = FONT_LOCATION + (self.V[x] as usize & 0xF * 5);
+        self.I = FONT_LOCATION + (self.V[x] as usize & 0xF) * 5;
     }
     fn set_i_big_sprite(&mut self, x: usize) {
         // VX should be a single hex value (0-F)
         // Assuming big fonts begin after small fonts, each font takes 10 bytes
-        self.I = BIG_FONT_LOCATION + (self.V[x] as usize & 0xF * 10);
+        self.I = BIG_FONT_LOCATION + (self.V[x] as usize & 0xF) * 10;
     }
     fn set_bcd(&mut self, x: usize) {
         let vx = self.V[x];
