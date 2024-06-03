@@ -1,6 +1,4 @@
 pub(super) struct CPUConfig {
-    pub variant: CPUVariant,
-
     // Enabled features
     pub hires_enabled: bool,
     pub scrolling_enabled: bool,
@@ -32,72 +30,95 @@ pub enum CPUVariant {
     XOChip,
 }
 
+impl CPUVariant {
+    fn into_config(&self) -> CPUConfig {
+        match self {
+            CPUVariant::Chip8 => CPUVariant::into_chip8_config(),
+            CPUVariant::Chip48 => CPUVariant::into_chip48_config(),
+            CPUVariant::SChipv1_0 => CPUVariant::into_schipv_1_0_config(),
+            CPUVariant::SChipv1_1 => CPUVariant::into_schipv_1_1_config(),
+            CPUVariant::XOChip => CPUVariant::into_xo_chip_config()
+        }
+    }
+
+    fn into_chip8_config() -> CPUConfig {
+        CPUConfig::default()
+    }
+
+    fn into_chip48_config() -> CPUConfig {
+        CPUConfig {
+            shift_quirk: true,
+            logic_quirk: false,
+            jump_quirk: true,
+            load_store_offset: Some(0),
+            ..Default::default()
+        }
+    }
+
+    fn into_schipv_1_0_config() -> CPUConfig {
+        CPUConfig {
+            hires_enabled: true,
+            flag_registers_enabled: true,
+            logic_quirk: false,
+            shift_quirk: true,
+            jump_quirk: true,
+            load_store_offset: Some(0),
+            dxy0_lores_width: Some(8),
+            resolutions: vec![(64, 32), (128, 64)],
+            ..Default::default()
+        }
+    }
+
+    fn into_schipv_1_1_config() -> CPUConfig {
+        CPUConfig {
+            hires_enabled: true,
+            scrolling_enabled: true,
+            flag_registers_enabled: true,
+            logic_quirk: false,
+            shift_quirk: true,
+            jump_quirk: true,
+            load_store_offset: None,
+            dxy0_lores_width: Some(8),
+            resolutions: vec![(64, 32), (128, 64)],
+            ..Default::default()
+        }
+    }
+
+    fn into_xo_chip_config() -> CPUConfig {
+        CPUConfig {
+            hires_enabled: true,
+            scrolling_enabled: true,
+            flag_registers_enabled: true,
+            logic_quirk: false,
+            dxy0_lores_width: Some(16),
+            resolutions: vec![(64, 32), (128, 64)],
+            ..Default::default()
+        }
+    }
+}
+
+// Define config default as CHIP-8 params
+impl Default for CPUConfig {
+    fn default() -> Self {        
+        Self {
+            hires_enabled: false,
+            scrolling_enabled: false,
+            flag_registers_enabled: false,
+            logic_quirk: true,
+            shift_quirk: false,
+            jump_quirk: false,
+            vblank_quirk: true,
+            scroll_quirk: false,
+            load_store_offset: Some(1),
+            dxy0_lores_width: None,
+            pc_start: 0x200,
+            resolutions: vec![(64, 32)]
+        }
+    }
+}
+
 impl From<CPUVariant> for CPUConfig {
     fn from(variant: CPUVariant) -> Self {
-        // Enabled features
-        // TODO: Might need a quirk/variant for modern vs legacy SCHIP?
-        let hires_enabled = matches!(
-            variant,
-            CPUVariant::SChipv1_0 | CPUVariant::SChipv1_1 | CPUVariant::XOChip
-        );
-        let scrolling_enabled = matches!(variant, CPUVariant::SChipv1_1 | CPUVariant::XOChip);
-        let flag_registers_enabled = hires_enabled;
-
-        // Quirks
-        let logic_quirk = matches!(variant, CPUVariant::Chip8);
-        let shift_quirk = matches!(
-            variant,
-            CPUVariant::Chip48 | CPUVariant::SChipv1_0 | CPUVariant::SChipv1_1
-        );
-        let jump_quirk = matches!(
-            variant,
-            CPUVariant::Chip48 | CPUVariant::SChipv1_0 | CPUVariant::SChipv1_1
-        );
-
-        let vblank_quirk = true;
-        let scroll_quirk = false;
-
-        let load_store_offset = match variant {
-            CPUVariant::Chip48 => Some(0),
-            CPUVariant::SChipv1_0 => Some(0),
-            CPUVariant::SChipv1_1 => None,
-            _ => Some(1),
-        };
-
-        let dxy0_lores_width = match variant {
-            CPUVariant::SChipv1_0 => Some(8),
-            CPUVariant::SChipv1_1 => Some(8),
-            CPUVariant::XOChip => Some(16),
-            _ => None,
-        };
-
-        // Misc
-        let pc_start = 0x200;
-
-        // Base resolution
-        let mut resolutions = vec![(64, 32)];
-
-        // Hi-res modes
-        match variant {
-            CPUVariant::SChipv1_1 => resolutions.push((128, 64)),
-            CPUVariant::XOChip => resolutions.push((128, 64)),
-            _ => (),
-        };
-
-        Self {
-            variant,
-            hires_enabled,
-            scrolling_enabled,
-            flag_registers_enabled,
-            logic_quirk,
-            shift_quirk,
-            jump_quirk,
-            vblank_quirk,
-            scroll_quirk,
-            load_store_offset,
-            dxy0_lores_width,
-            pc_start,
-            resolutions,
-        }
+        variant.into_config()
     }
 }
