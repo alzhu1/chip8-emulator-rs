@@ -454,10 +454,11 @@ impl CPU {
         self.V[0xF] = 0;
 
         // Handle DXY0 - change impl depending on DXY0 set width from config
-        let (lines, step, width) = if n == 0 {
+        let (lines, step, width) = if n == 0 && self.config.hires_enabled {
             // Width should be either 8 or 16
             // If 16, we need to read 2x memory and step 2 at a time
             match self.config.dxy0_lores_width {
+                Some(_) if x_size == 1 => (32, 2, 16),
                 Some(width) => (width * 2, width / 8, width),
                 None => (n, 1, 8)
             }
