@@ -95,6 +95,7 @@ impl CPUVariant {
             flag_registers_enabled: true,
             logic_quirk: false,
             vblank_quirk: false,
+            scroll_quirk: true,
             dxy0_lores_width: Some(16),
             resolutions: vec![(64, 32), (128, 64)],
             ..Default::default()
@@ -111,6 +112,7 @@ impl CPUVariant {
             shift_quirk: true,
             jump_quirk: true,
             vblank_quirk: false,
+            scroll_quirk: true,
             load_store_offset: None,
             dxy0_lores_width: Some(16),
             resolutions: vec![(64, 32), (128, 64)],
@@ -124,6 +126,8 @@ impl CPUVariant {
             scrolling_enabled: true,
             flag_registers_enabled: true,
             logic_quirk: false,
+            vblank_quirk: false,
+            scroll_quirk: true,
             dxy0_lores_width: Some(16),
             resolutions: vec![(64, 32), (128, 64)],
             ..Default::default()
