@@ -3,7 +3,7 @@ use chip8_emulator_rs::{
     cpu::CPU,
     input::{sdl_input::SDLInput, Input, InputEvent, InputKey},
     video::{sdl_video::SDLVideo, Video},
-    SCREEN_WIDTH
+    SCREEN_WIDTH,
 };
 
 const VIDEO_WIDTH: usize = SCREEN_WIDTH * 16;

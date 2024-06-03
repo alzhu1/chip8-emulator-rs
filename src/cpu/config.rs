@@ -7,13 +7,13 @@ pub(super) struct CPUConfig {
     pub flag_registers_enabled: bool,
 
     // Quirks
-    pub logic_quirk: bool,
-    pub shift_quirk: bool,
-    pub jump_quirk: bool,
-    pub load_store_offset: Option<usize>,
-    pub vblank_quirk: bool,
-    pub scroll_quirk: bool,
-    pub dxy0_lores_width: Option<usize>,
+    pub logic_quirk: bool,  // Should set VF = 0 after AND/OR/XOR operation
+    pub shift_quirk: bool,  // Should set VX to the shifted value of VX, not VY
+    pub jump_quirk: bool,   // Should jump to XNN + VX, instead of NNN + V0
+    pub vblank_quirk: bool, // Should set vblank interrupt (no processing until drawing finishes)
+    pub scroll_quirk: bool, // Should scroll by lores pixel size (e.g. 2x2)
+    pub load_store_offset: Option<usize>, // If set, mem load/store does I += (X + offset)
+    pub dxy0_lores_width: Option<usize>, // If set, DXY0 draws an (width x 16) sprite
 
     // Misc
     pub pc_start: usize,
@@ -54,6 +54,9 @@ impl From<CPUVariant> for CPUConfig {
             CPUVariant::Chip48 | CPUVariant::SChipv1_0 | CPUVariant::SChipv1_1
         );
 
+        let vblank_quirk = true;
+        let scroll_quirk = false;
+
         let load_store_offset = match variant {
             CPUVariant::Chip48 => Some(0),
             CPUVariant::SChipv1_0 => Some(0),
@@ -61,14 +64,11 @@ impl From<CPUVariant> for CPUConfig {
             _ => Some(1),
         };
 
-        let vblank_quirk = true;
-        let scroll_quirk = false;
-
         let dxy0_lores_width = match variant {
             CPUVariant::SChipv1_0 => Some(8),
             CPUVariant::SChipv1_1 => Some(8),
             CPUVariant::XOChip => Some(16),
-            _ => None
+            _ => None,
         };
 
         // Misc
@@ -92,9 +92,9 @@ impl From<CPUVariant> for CPUConfig {
             logic_quirk,
             shift_quirk,
             jump_quirk,
-            load_store_offset,
             vblank_quirk,
             scroll_quirk,
+            load_store_offset,
             dxy0_lores_width,
             pc_start,
             resolutions,

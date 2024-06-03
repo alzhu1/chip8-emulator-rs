@@ -82,7 +82,7 @@ pub struct CPU {
     curr_res: (usize, usize),
     pub max_res: (usize, usize),
 
-    flag_registers: [u8; 0x10]
+    flag_registers: [u8; 0x10],
 }
 
 impl CPU {
@@ -121,7 +121,7 @@ impl CPU {
             curr_res,
             max_res,
             vblank: false,
-            flag_registers: [0; 0x10]
+            flag_registers: [0; 0x10],
         }
     }
 
@@ -133,7 +133,7 @@ impl CPU {
         // Do this to pacify clippy
         match res {
             Ok(_) => (),
-            Err(_) => ()
+            Err(_) => (),
         }
     }
 
@@ -470,7 +470,7 @@ impl CPU {
             match self.config.dxy0_lores_width {
                 Some(_) if x_size == 1 => (32, 2, 16),
                 Some(width) => (width * 2, width / 8, width),
-                None => (n, 1, 8)
+                None => (n, 1, 8),
             }
         } else {
             (n, 1, 8)
